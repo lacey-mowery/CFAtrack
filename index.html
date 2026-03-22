@@ -282,6 +282,43 @@ body{font-family:'Arial',sans-serif;background:#f0f2f5;color:#1a1a2e;font-size:1
 
 <script>
 // ═══════════════════════════════════════════════
+// SUPABASE CONFIG — fill in your values after setup
+// ═══════════════════════════════════════════════
+const SUPABASE_URL  = 'https://ysyaqakgyukupexjhbyg.supabase.co';
+const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzeWFxYWtneXVrdXBleGpoYnlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyMDUzMjIsImV4cCI6MjA4OTc4MTMyMn0.n3zZ1mgUFSEHDmOtzxh-GAOQYGQ4K6qws1Wn2KFWAjw';
+const TABLE         = 'cfa_log';
+
+// DB helper — lightweight fetch wrapper (no SDK needed)
+const db = {
+  async select(){
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?order=date.asc`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    });
+    if(!r.ok) throw new Error(await r.text());
+    return r.json();
+  },
+  async insert(row){
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}`, {
+      method:'POST',
+      headers: {
+        apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`,
+        'Content-Type':'application/json', Prefer:'return=representation'
+      },
+      body: JSON.stringify(row)
+    });
+    if(!r.ok) throw new Error(await r.text());
+    return r.json();
+  },
+  async delete(id){
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${id}`, {
+      method:'DELETE',
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    });
+    if(!r.ok) throw new Error(await r.text());
+  }
+};
+
+// ═══════════════════════════════════════════════
 // CONFIG
 // ═══════════════════════════════════════════════
 const TARGET_DATE = new Date('2026-06-13');
@@ -316,13 +353,9 @@ const MILESTONES = {
   mi: ['7:30–7:45','7:00–7:20','6:50–7:10'],
 };
 
-// Seed data — stored as {date, wt, bb, pu, sh, cr, ps, mi (seconds), notes}
-let LOG = [
-  {date:'2026-02-21', wt:200,   bb:55,  pu:2,   sh:10.75, cr:27, ps:20, mi:530, notes:'Baseline'},
-  {date:'2026-03-08', wt:200,   bb:60,  pu:1,   sh:9.97,  cr:30, ps:35, mi:477, notes:'Pull-ups: fatigue'},
-  {date:'2026-03-15', wt:197,   bb:60,  pu:2,   sh:9.6,   cr:44, ps:38, mi:531, notes:''},
-  {date:'2026-03-22', wt:201.2, bb:60,  pu:2.5, sh:10.10, cr:51, ps:41, mi:487, notes:'Shuttle: dog interference'},
-];
+// LOG is loaded from Supabase on init — seed data inserted once on first load
+let LOG = [];
+let DB_READY = false; // true once Supabase has responded
 
 // ═══════════════════════════════════════════════
 // HELPERS
@@ -486,7 +519,7 @@ function renderLog(){
   if(!document.getElementById('f-date').value) document.getElementById('f-date').value=today;
 }
 
-function saveEntry(){
+async function saveEntry(){
   const date=document.getElementById('f-date').value;
   if(!date){alert('Please enter a date.');return;}
   const entry={
@@ -500,16 +533,36 @@ function saveEntry(){
     mi:  parseMile(document.getElementById('f-mi').value),
     notes: document.getElementById('f-notes').value||'',
   };
-  LOG.push(entry);
-  LOG.sort((a,b)=>a.date.localeCompare(b.date));
-  ['f-wt','f-bb','f-pu','f-sh','f-cr','f-ps','f-mi','f-notes'].forEach(id=>document.getElementById(id).value='');
-  refreshAll();
+
+  const btn = document.querySelector('.btn-save');
+  btn.textContent='Saving…'; btn.disabled=true;
+
+  try {
+    const [saved] = await db.insert(entry);
+    LOG.push(saved);
+    LOG.sort((a,b)=>a.date.localeCompare(b.date));
+    ['f-wt','f-bb','f-pu','f-sh','f-cr','f-ps','f-mi','f-notes'].forEach(id=>document.getElementById(id).value='');
+    refreshAll();
+    btn.textContent='Saved ✓'; btn.style.background='#1a7a4a';
+    setTimeout(()=>{btn.textContent='Save Entry';btn.style.background='';btn.disabled=false;},1500);
+  } catch(e) {
+    console.error(e);
+    alert('Save failed: '+e.message);
+    btn.textContent='Save Entry'; btn.disabled=false;
+  }
 }
 
-function deleteRow(i){
+async function deleteRow(i){
   if(!confirm('Delete this entry?')) return;
-  LOG.splice(i,1);
-  refreshAll();
+  const row = LOG[i];
+  try {
+    await db.delete(row.id);
+    LOG.splice(i,1);
+    refreshAll();
+  } catch(e) {
+    console.error(e);
+    alert('Delete failed: '+e.message);
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -635,10 +688,62 @@ function refreshAll(){
   if(document.getElementById('page-burndown').classList.contains('active')) renderBurndown();
 }
 
-refreshAll();
-
 // ═══════════════════════════════════════════════
-// USNA CFA SCORING — interpolated from anchor points
+// INIT — load from Supabase, seed on first run
+// ═══════════════════════════════════════════════
+const SEED_DATA = [
+  {date:'2026-02-21', wt:200,   bb:55,  pu:2,   sh:10.75, cr:27, ps:20, mi:530, notes:'Baseline'},
+  {date:'2026-03-08', wt:200,   bb:60,  pu:1,   sh:9.97,  cr:30, ps:35, mi:477, notes:'Pull-ups: fatigue'},
+  {date:'2026-03-15', wt:197,   bb:60,  pu:2,   sh:9.6,   cr:44, ps:38, mi:531, notes:''},
+  {date:'2026-03-22', wt:201.2, bb:60,  pu:2.5, sh:10.10, cr:51, ps:41, mi:487, notes:'Shuttle: dog interference'},
+];
+
+function showBanner(msg, type='info'){
+  let el = document.getElementById('db-banner');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'db-banner';
+    el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;padding:10px 20px;text-align:center;font-size:13px;font-weight:bold;transition:opacity 0.5s';
+    document.body.prepend(el);
+  }
+  const bg = type==='error' ? '#7a1a1a' : type==='success' ? '#1a3a28' : '#1a2a3e';
+  const fg = type==='error' ? '#fca5a5' : type==='success' ? '#86efac' : '#C5A028';
+  el.style.background = bg; el.style.color = fg; el.style.opacity = '1';
+  el.textContent = msg;
+  if(type !== 'info') setTimeout(()=>{ el.style.opacity='0'; }, 3000);
+}
+
+async function initApp(){
+  if(SUPABASE_URL === 'YOUR_SUPABASE_URL'){
+    LOG = SEED_DATA.map((r,i)=>({...r, id:i+1}));
+    showBanner('⚠  Supabase not configured — showing local data only. See setup instructions below.', 'error');
+    refreshAll();
+    return;
+  }
+
+  showBanner('⏳  Loading data…');
+  try {
+    let rows = await db.select();
+    if(rows.length === 0){
+      showBanner('⏳  First run — seeding database with existing scores…');
+      for(const row of SEED_DATA){
+        const [saved] = await db.insert(row);
+        rows.push(saved);
+      }
+    }
+    LOG = rows;
+    DB_READY = true;
+    showBanner('✓  Data loaded', 'success');
+    refreshAll();
+  } catch(e) {
+    console.error('Supabase error:', e);
+    LOG = SEED_DATA.map((r,i)=>({...r, id:i+1}));
+    showBanner('⚠  Database unreachable — showing local data. Check Supabase URL/key.', 'error');
+    refreshAll();
+  }
+}
+
+initApp();
 // Sources: USNA published max performance + threshold pts from calculator screenshot
 // ═══════════════════════════════════════════════
 const SC={
