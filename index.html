@@ -128,6 +128,84 @@ body{font-family:'Arial',sans-serif;background:#f0f2f5;color:#1a1a2e;font-size:1
 .leg-dashed{width:24px;height:3px;background:repeating-linear-gradient(90deg,#0080FF 0,#0080FF 5px,transparent 5px,transparent 9px)}
 .calc-wrap{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}
 @media(max-width:800px){.calc-wrap{grid-template-columns:1fr}}
+
+/* ── MOBILE RESPONSIVE ───────────────────────────────── */
+@media(max-width:640px){
+
+  /* Header */
+  .header{padding:12px 16px;flex-wrap:wrap;gap:8px}
+  .header-left h1{font-size:17px}
+  .header-left p{font-size:10px}
+  .header-stats{border-left:none;border-top:1px solid rgba(255,255,255,0.15);width:100%;justify-content:space-around;padding-top:8px}
+  .hstat{padding:4px 12px}
+  .hstat-val{font-size:18px}
+
+  /* Nav — scrollable horizontal strip */
+  .nav{padding:0 8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .nav::-webkit-scrollbar{display:none}
+  .nav-tab{padding:12px 12px;font-size:10px;letter-spacing:0.5px;white-space:nowrap}
+
+  /* Pages */
+  .page{padding:14px 12px}
+  .page-title{font-size:17px}
+
+  /* Overview stat cards — 2x2 grid */
+  .stat-cards{grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+  .stat-card{padding:14px 16px}
+  .stat-card-val{font-size:28px}
+
+  /* Event cards — single column */
+  .event-grid{grid-template-columns:1fr}
+  .event-metrics{grid-template-columns:1fr 1fr 1fr}
+  .metric-val{font-size:15px}
+
+  /* Log form */
+  .log-form{padding:16px}
+  .form-grid{grid-template-columns:1fr 1fr;gap:10px}
+  .log-table{font-size:12px}
+  .log-table th,.log-table td{padding:7px 8px}
+
+  /* Burndown */
+  .bd-chart-wrap{height:180px}
+  .bd-header{flex-direction:column;align-items:flex-start;gap:4px;padding:10px 14px}
+  .bd-avg{font-size:11px}
+  .bd-legend{flex-wrap:wrap;gap:8px;padding:8px 14px}
+
+  /* Goals table — hide less important columns */
+  .goals-table th:nth-child(3),
+  .goals-table td:nth-child(3),
+  .goals-table th:nth-child(4),
+  .goals-table td:nth-child(4){display:none}
+  .goals-table{font-size:12px}
+  .goals-table th,.goals-table td{padding:8px 8px}
+
+  /* CFA Calculator */
+  .calc-wrap{grid-template-columns:1fr}
+  .calc-event-name{font-size:11px}
+  .aedan-marker{display:block;margin-left:0;margin-top:3px}
+
+  /* WPS page — stack columns */
+  #page-wps > div:nth-child(2){grid-template-columns:1fr !important}
+  .wps-select{font-size:12px}
+  .wps-label{font-size:11px}
+
+  /* General cards */
+  .card{padding:12px 14px}
+  .card-title{font-size:11px}
+
+  /* Score display */
+  .score-display .score-num,
+  #r-cfa-total,#r-wpm-total{font-size:42px}
+
+  /* Reference tables — allow horizontal scroll */
+  .goals-table-wrap,
+  .session-history,
+  #page-reference .card{overflow-x:auto}
+
+  /* Summary table on dashboard */
+  #dash-table{font-size:11px}
+  #dash-table th,#dash-table td{padding:6px 6px;white-space:nowrap}
+}
 .calc-form{background:#0d1b2e;border-radius:8px;padding:24px}
 .calc-form h3{color:#C5A028;font-size:12px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:20px}
 .calc-gender{display:flex;gap:10px;margin-bottom:20px}
