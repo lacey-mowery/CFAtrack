@@ -272,6 +272,8 @@ body{font-family:'Arial',sans-serif;background:#f0f2f5;color:#1a1a2e;font-size:1
   <div class="nav-tab" onclick="showPage('goals',this)">Monthly Goals</div>
   <div class="nav-tab" onclick="showPage('calculator',this)">CFA Score Calculator</div>
   <div class="nav-tab" onclick="showPage('wps',this)">Whole Person Multiple</div>
+  <div class="nav-tab" onclick="showPage('training',this)">Training Plan</div>
+  <div class="nav-tab" onclick="showPage('scores',this)">Test Scores</div>
 </div>
 
 <!-- ═══════════ OVERVIEW ═══════════ -->
@@ -299,6 +301,17 @@ body{font-family:'Arial',sans-serif;background:#f0f2f5;color:#1a1a2e;font-size:1
     </div>
   </div>
   <div class="event-grid" id="event-grid"></div>
+
+  <!-- Weight / CFA correlation callout -->
+  <div id="weight-callout" style="margin-top:16px;background:#0d1b2e;border-radius:8px;padding:18px 22px;display:none">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <div style="color:#C5A028;font-size:11px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px">⚖️ Weight Impact on CFA</div>
+        <div id="weight-callout-text" style="font-size:13px;color:rgba(255,255,255,0.75);line-height:1.7"></div>
+      </div>
+      <div style="display:flex;gap:12px;flex-shrink:0" id="weight-callout-cards"></div>
+    </div>
+  </div>
 </div>
 
 <!-- ═══════════ LOG ═══════════ -->
@@ -800,7 +813,9 @@ function refreshAll(){
   renderOverview();
   renderLog();
   renderGoals();
+  renderWeightCallout();
   if(document.getElementById('page-burndown').classList.contains('active')) renderBurndown();
+  if(document.getElementById('page-training').classList.contains('active')) renderTraining();
 }
 
 // ═══════════════════════════════════════════════
@@ -1411,6 +1426,525 @@ function syncCFAHint(){
   }catch(e){}
 }
 setTimeout(syncCFAHint, 500);
+
+// ═══════════════════════════════════════════════
+// WEIGHT / CFA CORRELATION CALLOUT
+// ═══════════════════════════════════════════════
+function renderWeightCallout(){
+  const wtVals = LOG.filter(r=>getVal(r,'wt')!==null).map(r=>getVal(r,'wt'));
+  const puVals = LOG.filter(r=>getVal(r,'pu')!==null).map(r=>getVal(r,'pu'));
+  const miVals = LOG.filter(r=>getVal(r,'mi')!==null).map(r=>getVal(r,'mi'));
+  if(wtVals.length < 1) return;
+
+  const currentWt = wtVals[wtVals.length-1];
+  const targetWt  = USNA['wt'].avg; // 190
+  const wtDiff    = currentWt - targetWt;
+
+  const el = document.getElementById('weight-callout');
+  const txt = document.getElementById('weight-callout-text');
+  const cards = document.getElementById('weight-callout-cards');
+  el.style.display = 'block';
+
+  // Impact estimates: ~0.4 pull-up per 5 lbs, ~8 sec per 5 lbs on mile
+  const puImpact  = ((wtDiff / 5) * 0.4).toFixed(1);
+  const miImpact  = Math.round((wtDiff / 5) * 8);
+  const miImpactFmt = miImpact > 0 ? `+${fmtMile(miImpact)} slower` : `${fmtMile(Math.abs(miImpact))} faster`;
+  const puImpactFmt = parseFloat(puImpact) > 0 ? `-${Math.abs(puImpact)} reps harder` : `+${Math.abs(puImpact)} reps easier`;
+
+  const currentPU = puVals.length ? puVals[puVals.length-1] : null;
+  const currentMI = miVals.length ? miVals[miVals.length-1] : null;
+  const projPU = currentPU !== null ? Math.round((currentPU + parseFloat(puImpact) * -1) * 10)/10 : null;
+  const projMI = currentMI !== null ? currentMI - miImpact : null;
+
+  if(wtDiff > 0.5){
+    txt.innerHTML = `Current weight <strong style="color:#C5A028">${currentWt} lbs</strong> is ${wtDiff.toFixed(1)} lbs above the ${targetWt} lb target.
+      Reaching ${targetWt} lbs would estimate <strong style="color:#9ae6b4">+${Math.abs(puImpact)} pull-up reps</strong> and
+      <strong style="color:#9ae6b4">${fmtMile(Math.abs(miImpact))} faster mile</strong> based on body weight ratios.
+      Every 5 lbs matters most on pull-ups and the run.`;
+  } else if(wtDiff < -0.5){
+    txt.innerHTML = `Weight <strong style="color:#9ae6b4">${currentWt} lbs</strong> — ${Math.abs(wtDiff).toFixed(1)} lbs below the ${targetWt} lb target. Good position for pull-ups and the mile run.`;
+  } else {
+    txt.innerHTML = `Weight <strong style="color:#9ae6b4">${currentWt} lbs</strong> — right at the ${targetWt} lb target. Ideal for CFA performance.`;
+  }
+
+  cards.innerHTML = `
+    <div style="background:#1a2a3e;border-radius:6px;padding:12px 16px;text-align:center;min-width:110px">
+      <div style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Pull-ups at ${targetWt} lbs</div>
+      <div style="font-size:20px;font-weight:bold;color:${projPU!==null&&projPU>=(currentPU||0)?'#9ae6b4':'#fca5a5'}">${projPU!==null?projPU+'':'—'}</div>
+      <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-top:2px">est. reps</div>
+    </div>
+    <div style="background:#1a2a3e;border-radius:6px;padding:12px 16px;text-align:center;min-width:110px">
+      <div style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Mile at ${targetWt} lbs</div>
+      <div style="font-size:20px;font-weight:bold;color:${projMI!==null&&projMI<=(currentMI||9999)?'#9ae6b4':'#fca5a5'}">${projMI!==null?fmtMile(projMI):'—'}</div>
+      <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-top:2px">est. time</div>
+    </div>`;
+}
+</script>
+
+<!-- ═══════════ TRAINING PLAN PAGE ═══════════ -->
+<div class="page" id="page-training">
+  <div style="margin-bottom:20px">
+    <div class="page-title" style="color:#001F5B;font-size:20px;font-weight:bold">Training Plan</div>
+    <div style="font-size:12px;color:#666;margin-top:4px">Weekly structure based on current scores and days to Jun 13 CFA. Updates as you log new scores.</div>
+  </div>
+  <div id="training-content"></div>
+</div>
+
+<!-- ═══════════ TEST SCORES PAGE ═══════════ -->
+<div class="page" id="page-scores">
+  <div style="margin-bottom:20px">
+    <div class="page-title" style="color:#001F5B;font-size:20px;font-weight:bold">SAT / ACT Score Tracker</div>
+    <div style="font-size:12px;color:#666;margin-top:4px">Logs saved to Supabase. Superscores calculated automatically.</div>
+  </div>
+
+  <!-- Entry form -->
+  <div style="background:#0d1b2e;border-radius:8px;padding:22px;margin-bottom:20px">
+    <div style="color:#C5A028;font-size:11px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:16px">Log a Test Attempt</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:16px">
+      <div class="form-field">
+        <label>Test Date</label>
+        <input type="date" id="ts-date">
+      </div>
+      <div class="form-field">
+        <label>Test Type</label>
+        <select id="ts-type" style="width:100%;background:#1a2a3e;border:1px solid rgba(255,255,255,0.15);border-radius:5px;padding:10px 12px;color:#fff;font-size:14px">
+          <option value="SAT">SAT</option>
+          <option value="ACT">ACT</option>
+        </select>
+      </div>
+      <div class="form-field" id="sat-fields">
+        <label>SAT Math</label>
+        <input type="number" id="ts-sat-math" placeholder="200–800" min="200" max="800" step="10">
+      </div>
+      <div class="form-field">
+        <label id="ts-verbal-label">SAT R&W</label>
+        <input type="number" id="ts-verbal" placeholder="200–800" min="200" max="800" step="10">
+      </div>
+      <div class="form-field" id="act-extra-fields" style="display:none">
+        <label>ACT Science</label>
+        <input type="number" id="ts-act-science" placeholder="1–36" min="1" max="36">
+      </div>
+      <div class="form-field" id="act-reading-field" style="display:none">
+        <label>ACT Reading</label>
+        <input type="number" id="ts-act-reading" placeholder="1–36" min="1" max="36">
+      </div>
+      <div class="form-field">
+        <label>Notes</label>
+        <input type="text" id="ts-notes" placeholder="e.g. Khan prep, official test">
+      </div>
+    </div>
+    <button class="btn-save" id="ts-save-btn" onclick="saveTestScore()">Save Score</button>
+  </div>
+
+  <!-- Superscore summary -->
+  <div id="superscore-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px"></div>
+
+  <!-- History table -->
+  <div class="session-history">
+    <div class="sh-header"><h3>Score History</h3></div>
+    <div style="overflow-x:auto">
+      <table class="log-table">
+        <thead><tr>
+          <th>Date</th><th>Type</th><th>Math / Science</th><th>Verbal / E+R</th><th>Composite / Total</th><th>Notes</th><th></th>
+        </tr></thead>
+        <tbody id="scores-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+/* Training plan styles */
+.week-block{background:#fff;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:14px;overflow:hidden}
+.week-header{background:#0d1b2e;padding:12px 18px;display:flex;align-items:center;justify-content:space-between}
+.week-title{color:#C5A028;font-size:12px;font-weight:bold;letter-spacing:1px;text-transform:uppercase}
+.week-focus{color:rgba(255,255,255,0.6);font-size:11px}
+.day-row{display:grid;grid-template-columns:100px 1fr;gap:0;border-bottom:1px solid #f0f2f5}
+.day-row:last-child{border-bottom:none}
+.day-label{padding:11px 14px;font-weight:bold;font-size:12px;color:#001F5B;background:#f5f7fc;border-right:1px solid #e2e8f0;display:flex;align-items:center}
+.day-content{padding:11px 16px;font-size:13px;color:#2d3748;line-height:1.5}
+.day-content .tag{display:inline-block;padding:1px 7px;border-radius:3px;font-size:10px;font-weight:bold;letter-spacing:0.5px;margin-right:5px;text-transform:uppercase}
+.tag-pull{background:#dbeafe;color:#1e40af}
+.tag-run{background:#dcfce7;color:#166534}
+.tag-plyo{background:#fef3c7;color:#92400e}
+.tag-shuttle{background:#fce7f3;color:#9d174d}
+.tag-push{background:#f3e8ff;color:#6b21a8}
+.tag-rest{background:#f1f5f9;color:#64748b}
+.tag-cfa{background:#fee2e2;color:#991b1b}
+.plyo-note{margin-top:6px;font-size:11px;color:#666;font-style:italic;padding:6px 10px;background:#fffbeb;border-radius:4px;border-left:3px solid #C5A028}
+.training-insight{background:#0d1b2e;border-radius:8px;padding:16px 20px;margin-bottom:16px}
+.training-insight-title{color:#C5A028;font-size:11px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px}
+.insight-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:13px;color:rgba(255,255,255,0.75)}
+.insight-row:last-child{border-bottom:none}
+.insight-ev{width:130px;color:rgba(255,255,255,0.5);font-size:11px}
+.insight-bar-wrap{flex:1;height:6px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden}
+.insight-bar{height:6px;border-radius:3px;transition:width 0.4s}
+.insight-rec{font-size:11px;color:rgba(255,255,255,0.5);min-width:180px;text-align:right}
+@media(max-width:640px){
+  .day-row{grid-template-columns:70px 1fr}
+  .day-label{font-size:11px;padding:8px 8px}
+  .day-content{padding:8px 10px;font-size:12px}
+  #page-scores .form-field{min-width:140px}
+}
+</style>
+
+<script>
+// ═══════════════════════════════════════════════
+// TRAINING PLAN
+// ═══════════════════════════════════════════════
+function renderTraining(){
+  const container = document.getElementById('training-content');
+  if(!container) return;
+
+  // Get latest scores
+  const latest = {};
+  ['bb','pu','sh','cr','ps','mi','wt'].forEach(k=>{
+    latest[k] = getLatest(k);
+  });
+
+  const dl = daysLeft();
+  const weeksLeft = Math.ceil(dl / 7);
+
+  // Determine priority events based on gap to avg
+  const priorities = ['bb','pu','sh','cr','ps','mi'].map(k=>{
+    const ev = EVENTS.find(e=>e.key===k);
+    const score = latest[k];
+    const avg = USNA[k].avg;
+    const base = getBase(k);
+    const pct = pctClosed(score, base, avg, ev.higher);
+    const projected = trendAtTarget(k, ev.higher);
+    const onTrack = ev.higher ? projected >= avg : projected <= avg;
+    return {key:k, name:ev.name, pct, onTrack, score, avg, higher:ev.higher};
+  }).sort((a,b)=> a.pct - b.pct); // lowest % first = highest priority
+
+  const topPriority = priorities.filter(p=>!p.onTrack).slice(0,3).map(p=>p.key);
+
+  // Pull-up specific reps for GTG context
+  const puCurrent = latest['pu'] || 2;
+  const puGTGset = Math.max(1, Math.floor(puCurrent * 0.6));
+
+  // Mile current for pacing context
+  const miCurrent = latest['mi'] || 487;
+  const miPace = fmtMile(Math.round(miCurrent / 1.05)); // target easy pace
+
+  container.innerHTML = '';
+
+  // ── Priority insight bar ──────────────────────────────────────
+  const insightDiv = document.createElement('div');
+  insightDiv.className = 'training-insight';
+  insightDiv.innerHTML = `
+    <div class="training-insight-title">Current Focus Areas — ${weeksLeft} weeks to Jun 13</div>
+    ${priorities.map(p=>{
+      const barColor = p.onTrack ? '#22c55e' : p.pct > 50 ? '#C5A028' : '#ef4444';
+      const rec = p.onTrack ? 'On track — maintain' :
+        p.key==='pu' ? `GTG: ${puGTGset} reps × 5 sets/day` :
+        p.key==='mi' ? 'Intervals + easy runs' :
+        p.key==='sh' ? 'Plyo + sprint drills' :
+        p.key==='cr' ? '2-min sets daily' :
+        p.key==='ps' ? 'Max sets daily' :
+        'Technique + practice';
+      return `<div class="insight-row">
+        <div class="insight-ev">${p.name}</div>
+        <div class="insight-bar-wrap"><div class="insight-bar" style="width:${Math.min(100,p.pct)}%;background:${barColor}"></div></div>
+        <div class="insight-rec">${rec}</div>
+      </div>`;
+    }).join('')}
+  `;
+  container.appendChild(insightDiv);
+
+  // ── Weekly schedule ───────────────────────────────────────────
+  const plyoNote = `<div class="plyo-note">💡 <strong>Plyo note:</strong> 2–3 short plyo sessions per week (10–12 min before a run or sprint) prime your fast-twitch fibers. After 3–4 consistent weeks you'll notice shuttle and sprint times drop. Box jumps, broad jumps, lateral bounds × 3 sets each — keep it explosive, not exhausting.</div>`;
+
+  const days = [
+    {
+      label: 'Monday',
+      content: `<span class="tag tag-pull">Pull-ups GTG</span><span class="tag tag-push">Push-ups</span><span class="tag tag-run">Easy Run</span>
+        <br>Morning: ${puGTGset} pull-ups × 5 sets (sub-max, spread across day). 3 sets max push-ups. Evening: 20–25 min easy run at ${miPace}/mi pace — conversational effort.
+        ${plyoNote}`
+    },
+    {
+      label: 'Tuesday',
+      content: `<span class="tag tag-plyo">Plyo</span><span class="tag tag-shuttle">Shuttle Sprints</span><span class="tag tag-pull">Pull-ups GTG</span>
+        <br>Morning: 10 min plyo warmup (box jumps × 5, broad jumps × 5, lateral bounds × 5 — 3 rounds). Then 6–8 × 40yd shuttle practice with full rest. Pull-up GTG throughout day.
+        ${plyoNote}`
+    },
+    {
+      label: 'Wednesday',
+      content: `<span class="tag tag-push">Push-ups</span><span class="tag tag-cfa">Crunches</span><span class="tag tag-run">Interval Run</span>
+        <br>2 min max push-ups + 2 min max crunches (CFA-style). Run: 4 × 400m at goal mile pace with 90 sec rest. Core finisher: 3 × max crunches.`
+    },
+    {
+      label: 'Thursday',
+      content: `<span class="tag tag-plyo">Plyo</span><span class="tag tag-pull">Pull-ups</span><span class="tag tag-run">Tempo Run</span>
+        <br>Morning: 10 min plyo warmup before the run. 20 min tempo run (comfortably hard, ~30 sec/mi faster than easy pace). Pull-up GTG throughout day. ${puGTGset} reps × 5 sets.
+        ${plyoNote}`
+    },
+    {
+      label: 'Friday',
+      content: `<span class="tag tag-cfa">Full CFA Simulation</span>
+        <br><strong>Once monthly only</strong> — run all 6 events in sequence with official timing (2 min work, 3 min rest). Every other Friday: push-ups + crunches only at max effort. Basketball throw practice: 10–15 throws focusing on hip rotation and follow-through.`
+    },
+    {
+      label: 'Saturday',
+      content: `<span class="tag tag-run">Long Run</span><span class="tag tag-push">Push-ups</span>
+        <br>30–40 min easy long run (builds aerobic base for mile). 3 × max push-ups throughout the day. Optional: basketball throw practice (10 min).`
+    },
+    {
+      label: 'Sunday',
+      content: `<span class="tag tag-rest">Active Rest</span><span class="tag tag-pull">Pull-ups GTG</span>
+        <br>Light walk or swim. Pull-up GTG continues — ${puGTGset} reps × 3–4 sets. No high-intensity work. Focus on sleep and nutrition.`
+    },
+  ];
+
+  const weekDiv = document.createElement('div');
+  weekDiv.className = 'week-block';
+  weekDiv.innerHTML = `
+    <div class="week-header">
+      <span class="week-title">Weekly Template</span>
+      <span class="week-focus">Adjust intensity based on how legs/shoulders feel</span>
+    </div>
+    ${days.map(d=>`
+      <div class="day-row">
+        <div class="day-label">${d.label}</div>
+        <div class="day-content">${d.content}</div>
+      </div>
+    `).join('')}
+  `;
+  container.appendChild(weekDiv);
+
+  // ── Pull-up GTG explainer ─────────────────────────────────────
+  const gtgDiv = document.createElement('div');
+  gtgDiv.className = 'week-block';
+  gtgDiv.innerHTML = `
+    <div class="week-header">
+      <span class="week-title">Pull-up GTG Protocol — Greasing the Groove</span>
+      <span class="week-focus">Most effective method for rapid pull-up gains</span>
+    </div>
+    <div class="day-row">
+      <div class="day-label">What</div>
+      <div class="day-content">Sub-maximal sets spread throughout the day. Current max ~${Math.round(puCurrent)} reps → do <strong>${puGTGset} reps per set</strong>. Never go to failure.</div>
+    </div>
+    <div class="day-row">
+      <div class="day-label">How</div>
+      <div class="day-content">5–6 sets per day, minimum 30 min apart. Use a doorframe bar. Add a slow 3-second negative (lowering phase) on every rep — this builds pulling strength faster than fast reps.</div>
+    </div>
+    <div class="day-row">
+      <div class="day-label">When to see it</div>
+      <div class="day-content">Nervous system adapts in <strong>2–3 weeks</strong>. Expect first noticeable jump at the 3-week mark. Strength gains compound — once you hit 4 clean reps, 8 follows faster than 2 → 4 did.</div>
+    </div>
+    <div class="day-row">
+      <div class="day-label">CFA form</div>
+      <div class="day-content">Pronated grip (palms away). Dead hang start. Chin clears bar. No kipping or swinging. Practice cadence pull-ups — USNA uses a commanded pace, not max speed.</div>
+    </div>
+  `;
+  container.appendChild(gtgDiv);
+
+  // ── Plyo timing detail ────────────────────────────────────────
+  const plyoDiv = document.createElement('div');
+  plyoDiv.className = 'week-block';
+  plyoDiv.innerHTML = `
+    <div class="week-header">
+      <span class="week-title">Plyometrics for Shuttle + Sprint Speed</span>
+      <span class="week-focus">2–3× per week, 10–12 min before runs or sprint work</span>
+    </div>
+    <div class="day-row">
+      <div class="day-label">Why before</div>
+      <div class="day-content">Plyo primes fast-twitch fibers and activates the stretch-shortening cycle. Running immediately after captures that neuromuscular activation — your stride rate and ground contact time improve within the same session.</div>
+    </div>
+    <div class="day-row">
+      <div class="day-label">Session</div>
+      <div class="day-content"><strong>3 rounds, ~10 min total:</strong><br>• Box jumps × 5 (step down, don't jump down)<br>• Broad jumps × 5 (max distance, stick the landing)<br>• Lateral bounds × 5 each side (shuttle-specific)<br>• 2 × 10yd acceleration sprint<br>60 sec rest between rounds</div>
+    </div>
+    <div class="day-row">
+      <div class="day-label">Timeline</div>
+      <div class="day-content"><strong>Week 1–2:</strong> Legs feel heavy after, slight soreness — normal.<br><strong>Week 3–4:</strong> Activation starts feeling natural, stride feels snappier.<br><strong>Week 5+:</strong> Measurable improvement in shuttle time and first 200m of the mile. Most athletes notice 0.2–0.4 sec off shuttle by week 4–6.</div>
+    </div>
+    <div class="day-row">
+      <div class="day-label">Rules</div>
+      <div class="day-content">Quality over quantity — if form breaks down, stop. Never do heavy plyo the day before a full CFA simulation. Rest at least 48h between plyo sessions.</div>
+    </div>
+  `;
+  container.appendChild(plyoDiv);
+}
+
+// ═══════════════════════════════════════════════
+// TEST SCORES (Supabase: test_scores table)
+// ═══════════════════════════════════════════════
+let TEST_SCORES = [];
+
+// Seed with Aedan's known scores
+const SEED_SCORES = [
+  {date:'2025-03-01', type:'ACT', math:29, verbal:61, science:29, reading:33, notes:'ACT March 2025 — composite 30'},
+  {date:'2025-08-01', type:'SAT', math:630, verbal:670, science:null, reading:null, notes:'SAT August 2025 — 1300'},
+  {date:'2025-12-01', type:'SAT', math:660, verbal:630, science:null, reading:null, notes:'SAT December 2025 — 1290'},
+  {date:'2026-03-14', type:'SAT', math:640, verbal:650, science:null, reading:null, notes:'SAT March 2026 — 1290'},
+];
+
+// Toggle ACT-specific fields
+document.getElementById('ts-type').addEventListener('change', function(){
+  const isACT = this.value === 'ACT';
+  document.getElementById('ts-sat-math').placeholder = isACT ? '1–36 (Math)' : '200–800';
+  document.getElementById('ts-sat-math').max = isACT ? 36 : 800;
+  document.getElementById('ts-sat-math').min = isACT ? 1 : 200;
+  document.getElementById('ts-verbal').placeholder = isACT ? '1–36 (English)' : '200–800';
+  document.getElementById('ts-verbal').max = isACT ? 36 : 800;
+  document.getElementById('ts-verbal').min = isACT ? 1 : 200;
+  document.getElementById('ts-verbal-label').textContent = isACT ? 'ACT English' : 'SAT R&W';
+  document.getElementById('act-extra-fields').style.display = isACT ? '' : 'none';
+  document.getElementById('act-reading-field').style.display = isACT ? '' : 'none';
+  document.getElementById('sat-fields').querySelector('label').textContent = isACT ? 'ACT Math' : 'SAT Math';
+});
+
+async function saveTestScore(){
+  const date  = document.getElementById('ts-date').value;
+  const type  = document.getElementById('ts-type').value;
+  const math  = parseFloat(document.getElementById('ts-sat-math').value)||null;
+  const verbal= parseFloat(document.getElementById('ts-verbal').value)||null;
+  const sci   = parseFloat(document.getElementById('ts-act-science').value)||null;
+  const rdg   = parseFloat(document.getElementById('ts-act-reading').value)||null;
+  const notes = document.getElementById('ts-notes').value||'';
+  if(!date||!math||!verbal){alert('Please enter date, math, and verbal scores.');return;}
+
+  const entry = {date, type, math, verbal, science:sci, reading:rdg, notes};
+  const btn = document.getElementById('ts-save-btn');
+  btn.textContent='Saving…'; btn.disabled=true;
+
+  try{
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/test_scores`, {
+      method:'POST',
+      headers:{apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`,
+        'Content-Type':'application/json', Prefer:'return=representation'},
+      body:JSON.stringify(entry)
+    });
+    if(!r.ok) throw new Error(await r.text());
+    const [saved] = await r.json();
+    TEST_SCORES.push(saved);
+    TEST_SCORES.sort((a,b)=>a.date.localeCompare(b.date));
+    ['ts-date','ts-sat-math','ts-verbal','ts-act-science','ts-act-reading','ts-notes']
+      .forEach(id=>document.getElementById(id).value='');
+    renderScores();
+    btn.textContent='Saved ✓'; btn.style.background='#1a7a4a';
+    setTimeout(()=>{btn.textContent='Save Score';btn.style.background='';btn.disabled=false;},1500);
+  }catch(e){
+    alert('Save failed: '+e.message);
+    btn.textContent='Save Score'; btn.disabled=false;
+  }
+}
+
+async function deleteScore(id){
+  if(!confirm('Delete this score?')) return;
+  try{
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/test_scores?id=eq.${id}`,{
+      method:'DELETE',
+      headers:{apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`}
+    });
+    if(!r.ok) throw new Error(await r.text());
+    TEST_SCORES = TEST_SCORES.filter(s=>s.id!==id);
+    renderScores();
+  }catch(e){ alert('Delete failed: '+e.message); }
+}
+
+function getSuperscore(){
+  const sats = TEST_SCORES.filter(s=>s.type==='SAT');
+  const acts = TEST_SCORES.filter(s=>s.type==='ACT');
+  const satMath  = sats.length ? Math.max(...sats.map(s=>s.math||0))  : null;
+  const satVerbal= sats.length ? Math.max(...sats.map(s=>s.verbal||0)): null;
+  const actMath  = acts.length ? Math.max(...acts.map(s=>s.math||0))  : null;
+  const actEng   = acts.length ? Math.max(...acts.map(s=>s.verbal||0)): null;
+  const actSci   = acts.length ? Math.max(...acts.map(s=>s.science||0)):null;
+  const actRdg   = acts.length ? Math.max(...acts.map(s=>s.reading||0)):null;
+  // ACT composite = avg of 4 sections rounded
+  const actComp  = (actMath&&actEng&&actSci&&actRdg)
+    ? Math.round((actMath+actEng+actSci+actRdg)/4) : null;
+  return {satMath, satVerbal, satTotal:(satMath&&satVerbal)?satMath+satVerbal:null,
+          actMath, actEng, actSci, actRdg, actComp};
+}
+
+function renderScores(){
+  const ss = getSuperscore();
+  const cards = document.getElementById('superscore-cards');
+  const cardStyle = 'background:#0d1b2e;border-radius:8px;padding:16px 20px';
+  const lbl = (t,c='rgba(255,255,255,0.5)') => `<div style="font-size:10px;color:${c};text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">${t}</div>`;
+  const big = (v,c='#C5A028') => `<div style="font-size:28px;font-weight:bold;color:${c};line-height:1">${v??'—'}</div>`;
+  const sub = (t) => `<div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:3px">${t}</div>`;
+
+  cards.innerHTML = `
+    <div style="${cardStyle}">
+      ${lbl('SAT Superscore')}${big(ss.satTotal)}${sub(`Math: ${ss.satMath??'—'} · R&W: ${ss.satVerbal??'—'}`)}
+    </div>
+    <div style="${cardStyle}">
+      ${lbl('ACT Composite (best)')}${big(ss.actComp)}${sub(`Math: ${ss.actMath??'—'} · Eng: ${ss.actEng??'—'} · Sci: ${ss.actSci??'—'} · Rdg: ${ss.actRdg??'—'}`)}
+    </div>
+    <div style="${cardStyle}">
+      ${lbl('SAT Math Best')}${big(ss.satMath, ss.satMath>=660?'#9ae6b4':ss.satMath>=600?'#C5A028':'#fca5a5')}${sub('USNA 25th–75th: 610–720')}
+    </div>
+    <div style="${cardStyle}">
+      ${lbl('SAT Verbal Best')}${big(ss.satVerbal, ss.satVerbal>=660?'#9ae6b4':ss.satVerbal>=600?'#C5A028':'#fca5a5')}${sub('USNA 25th–75th: 600–710')}
+    </div>
+  `;
+
+  const tbody = document.getElementById('scores-tbody');
+  tbody.innerHTML = '';
+  [...TEST_SCORES].reverse().forEach(s=>{
+    const comp = s.type==='SAT'
+      ? ((s.math||0)+(s.verbal||0)) || '—'
+      : (s.math&&s.verbal&&s.science&&s.reading)
+        ? Math.round((s.math+s.verbal+s.science+s.reading)/4)
+        : '—';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${s.date}</td>
+      <td><strong>${s.type}</strong></td>
+      <td>${s.math??'—'}</td>
+      <td>${s.verbal??'—'}${s.type==='ACT'&&s.reading?' / '+s.reading:''}</td>
+      <td style="font-weight:bold">${comp}</td>
+      <td style="color:#666;font-style:italic">${s.notes||''}</td>
+      <td><button class="btn-del" onclick="deleteScore(${s.id})">✕</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+async function initTestScores(){
+  if(SUPABASE_URL==='YOUR_SUPABASE_URL'){
+    TEST_SCORES = SEED_SCORES.map((s,i)=>({...s,id:i+1}));
+    renderScores(); return;
+  }
+  try{
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/test_scores?order=date.asc`,{
+      headers:{apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`}
+    });
+    if(!r.ok) throw new Error(await r.text());
+    let rows = await r.json();
+    if(rows.length===0){
+      for(const s of SEED_SCORES){
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/test_scores`,{
+          method:'POST',
+          headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,
+            'Content-Type':'application/json',Prefer:'return=representation'},
+          body:JSON.stringify(s)
+        });
+        if(res.ok) rows.push(...await res.json());
+      }
+    }
+    TEST_SCORES = rows;
+    renderScores();
+  }catch(e){
+    console.error(e);
+    TEST_SCORES = SEED_SCORES.map((s,i)=>({...s,id:i+1}));
+    renderScores();
+  }
+}
+
+// Hook training and scores into showPage
+const _origShowPage = showPage;
+showPage = function(id, el){
+  _origShowPage(id, el);
+  if(id==='training') renderTraining();
+  if(id==='scores') renderScores();
+};
+
+initTestScores();
 </script>
 
 </body>
