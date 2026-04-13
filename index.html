@@ -345,12 +345,12 @@ body{font-family:'Arial',sans-serif;background:#f0f2f5;color:#1a1a2e;font-size:1
 
 <!-- ═══════════ GOALS ═══════════ -->
 <div class="page" id="page-goals">
-  <p class="goals-sub">Goals set to beat CFA average by June 13. Lower is better for shuttle and mile.</p>
+  <p class="goals-sub">Updated April 2026 — targets reset from current scores. Lower is better for shuttle and mile.</p>
   <div class="goals-table-wrap">
     <div class="goals-table-header"><h3>Monthly Milestone Targets</h3></div>
     <table class="goals-table">
       <thead><tr>
-        <th>Event</th><th>Current</th><th>Apr Target</th><th>May Target</th>
+        <th>Event</th><th>Current</th><th>May Target</th><th>Jun Target</th>
         <th>Jun 13 Goal</th><th>CFA Avg</th><th>CFA Best</th><th>Status</th>
       </tr></thead>
       <tbody id="goals-tbody"></tbody>
@@ -422,13 +422,15 @@ const EVENTS = [
 ];
 
 const MILESTONES = {
-  wt: ['195–198','192–195','188–192'],
-  bb: ['63–65','65–68','68–72'],
-  pu: ['4–5','6–7','7–9'],
-  sh: ['9.2–9.3','9.0–9.1','8.8–9.0'],
-  cr: ['55–60','65–70','70–80'],
-  ps: ['45–50','55–60','60–70'],
-  mi: ['7:30–7:45','7:00–7:20','6:50–7:10'],
+  // [May target, Jun target, Jun 13 goal]
+  // Updated April 2026 — based on current scores
+  wt: ['191–193','188–191','185–190'],   // currently 193.4, trending down well
+  bb: ['67–70','70–74','72–76'],          // currently 65, at avg — push toward best
+  pu: ['7–8','9–10','10–12'],             // currently 6, already past old May target
+  sh: ['9.1–9.3','8.9–9.1','8.8–9.0'],   // currently 9.5, trend 8.5 by Jun 13
+  cr: ['68–72','74–78','78–85'],          // currently 61, trending strongly
+  ps: ['52–58','58–64','62–68'],          // currently 45, steady climb
+  mi: ['6:55–7:10','6:40–6:55','6:30–6:45'], // currently 7:10, trend 6:53
 };
 
 // LOG is loaded from Supabase on init — seed data inserted once on first load
@@ -488,9 +490,47 @@ function linReg(vals){
   const slope=xs.reduce((s,x,i)=>s+(x-xm)*(vals[i]-ym),0)/xs.reduce((s,x)=>s+(x-xm)**2,0);
   return {slope,intercept:ym-slope*xm};
 }
-function statusOf(pctAvg){
-  if(pctAvg>=80) return 'on-target';
-  if(pctAvg>=35) return 'improving';
+// Returns projected value at TARGET_DATE using linear regression on LOG data for this event
+function trendAtTarget(key, higher){
+  const rows = LOG.filter(r=>getVal(r,key)!==null);
+  if(rows.length < 2){
+    // Only one data point — can't project, use current value
+    return getLatest(key);
+  }
+  const vals = rows.map(r=>getVal(r,key));
+  const {slope, intercept} = linReg(vals);
+  // Estimate how many "test intervals" to Jun 13
+  // Use average days between tests to convert days → test-index steps
+  const dates = rows.map(r=>new Date(r.date+'T12:00:00'));
+  const avgInterval = dates.length > 1
+    ? (dates[dates.length-1] - dates[0]) / (dates.length - 1)
+    : 28 * 24 * 60 * 60 * 1000; // default 28 days
+  const daysToTarget = (TARGET_DATE - dates[dates.length-1]) / (1000*60*60*24);
+  const stepsToTarget = daysToTarget / (avgInterval / (1000*60*60*24));
+  return intercept + slope * (vals.length - 1 + stepsToTarget);
+}
+
+// Status based on whether the trend line will reach USNA avg by Jun 13
+// On Target   = trend projects to meet or beat USNA average by Jun 13
+// Improving   = trend is moving in the right direction but won't quite reach avg
+// Needs Work  = trend is flat or moving the wrong direction
+function statusOf(key, higher){
+  const avg = USNA[key].avg;
+  const latest = getLatest(key);
+  if(latest === null) return 'needs-work';
+
+  const projected = trendAtTarget(key, higher);
+
+  // Check if trend reaches avg
+  const willReach = higher ? projected >= avg : projected <= avg;
+  if(willReach) return 'on-target';
+
+  // Check if trend is at least moving in the right direction
+  const base = getBase(key);
+  if(base === null) return 'needs-work';
+  const movingRight = higher ? projected > base : projected < base;
+  if(movingRight) return 'improving';
+
   return 'needs-work';
 }
 
@@ -517,10 +557,7 @@ function renderOverview(){
 
   let onTarget=0,improving=0,needsWork=0;
   EVENTS.forEach(ev=>{
-    const latest=getLatest(ev.key);
-    const base=getBase(ev.key);
-    const p=pctClosed(latest,base,USNA[ev.key].avg,ev.higher);
-    const s=statusOf(p);
+    const s=statusOf(ev.key, ev.higher);
     if(s==='on-target') onTarget++;
     else if(s==='improving') improving++;
     else needsWork++;
@@ -536,10 +573,10 @@ function renderOverview(){
     const base=getBase(ev.key);
     const pAvg=pctClosed(latest,base,USNA[ev.key].avg,ev.higher);
     const pBest=pctClosed(latest,base,USNA[ev.key].best,ev.higher);
-    const s=statusOf(pAvg);
+    const s=statusOf(ev.key, ev.higher);
     const badgeText=s==='on-target'?'On Target':s==='improving'?'Improving':'Needs Work';
     const badgeClass=s==='on-target'?'badge-good':s==='improving'?'badge-ok':'badge-bad';
-    const fillClass=pAvg>=80?'good':pAvg>=35?'ok':'';
+    const fillClass=s==='on-target'?'good':s==='improving'?'ok':'';
 
     const avgDisp=ev.key==='mi'?fmtMile(USNA[ev.key].avg)+' min':USNA[ev.key].avg+' '+ev.unit;
     const bestDisp=ev.key==='mi'?fmtMile(USNA[ev.key].best)+' min':USNA[ev.key].best+' '+ev.unit;
@@ -721,9 +758,9 @@ function renderGoals(){
     const latest=getLatest(ev.key);
     const base=getBase(ev.key);
     const pAvg=pctClosed(latest,base,USNA[ev.key].avg,ev.higher);
-    const s=statusOf(pAvg);
+    const s=statusOf(ev.key, ev.higher);
     const spClass=s==='on-target'?'sp-good':s==='improving'?'sp-ok':'sp-bad';
-    const spText=s==='on-target'?'On Target':s==='improving'?'Improving':'Needs Work';
+    const spLabel=s==='on-target'?'On Target':s==='improving'?'Improving':'Needs Work';
 
     const ms=MILESTONES[ev.key];
     const latestDisp=latest===null?'—':(ev.key==='mi'?fmtMile(latest)+' min':(ev.key==='wt'?Number(latest).toFixed(1):latest)+' '+ev.unit);
@@ -751,7 +788,7 @@ function renderGoals(){
       <td class="goal-june">${ms[2]} <span style="color:#888;font-size:11px;font-weight:normal">(trend: ${junProj})</span></td>
       <td style="color:#007030;font-weight:bold">${avgDisp}</td>
       <td style="color:#8B6914;font-weight:bold">${bestDisp}</td>
-      <td><span class="status-pill ${spClass}">${spText}</span></td>
+      <td><span class="status-pill ${spClass}">${spLabel}</span></td>
     </tr>`;
   });
 }
