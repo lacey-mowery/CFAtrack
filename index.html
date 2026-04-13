@@ -402,7 +402,7 @@ const db = {
 const TARGET_DATE = new Date('2026-06-13');
 
 const USNA = {
-  wt: {avg:185,  best:180},
+  wt: {avg:190,  best:180},
   bb: {avg:67,   best:102},
   pu: {avg:13,   best:18},
   sh: {avg:8.90, best:7.8},
@@ -854,7 +854,19 @@ function iScore(t,v){
 
 let calcGender='male';
 const cVals={};
-const AEDAN={bb:60,pu:2.5,sh:10.10,cr:51,ps:41,mi:487};
+// Aedan's latest scores — pulled live from LOG so it stays current
+function getAedanLatest(){
+  const keys=['bb','pu','sh','cr','ps','mi'];
+  const out={};
+  keys.forEach(k=>{
+    for(let i=LOG.length-1;i>=0;i--){
+      const v=getVal(LOG[i],k);
+      if(v!==null){out[k]=v;break;}
+    }
+    if(out[k]===undefined) out[k]=null;
+  });
+  return out;
+}
 const CEV=[
   {key:'bb',label:'Basketball Throw',unit:'ft',
    male:{t:'bb_male',min:20,max:102,step:1,def:60},female:{t:'bb_female',min:10,max:66,step:1,def:40}},
@@ -886,11 +898,13 @@ function setGender(g,btn){
 }
 function buildCalcUI(){
   const cont=document.getElementById('calc-events'); cont.innerHTML='';
+  const AEDAN=getAedanLatest();
   CEV.forEach(ev=>{
     const cfg=calcGender==='male'?ev.male:ev.female;
     if(cVals[ev.key]===undefined) cVals[ev.key]=cfg.def;
     const val=cVals[ev.key], pts=iScore(cfg.t,val);
-    const aD=ev.key==='mi'?fmtMile(AEDAN[ev.key]):AEDAN[ev.key];
+    const latest=AEDAN[ev.key];
+    const aD=latest===null?'—':(ev.key==='mi'?fmtMile(latest):latest);
     const dV=ev.key==='mi'?fmtMile(val):val;
     const div=document.createElement('div'); div.className='calc-event';
     div.innerHTML=`<div class="calc-event-header">
@@ -1010,25 +1024,25 @@ function calcResults(){
 
         <div class="wps-field">
           <div class="wps-field-header">
-            <label class="wps-label">SAT Math Score <span class="wps-weight">18%</span></label>
+            <label class="wps-label">SAT Math / ACT Math+Science <span class="wps-weight">18%</span></label>
             <span class="wps-pts" id="w-sat-math-pts">—</span>
           </div>
           <div style="display:flex;gap:8px;align-items:center">
             <select id="w-sat-math" class="wps-select" onchange="calcWPS()">
               <option value="">— select —</option>
-              <option value="180">800 (perfect)</option>
-              <option value="162">750–799</option>
-              <option value="144">700–749</option>
-              <option value="126">650–699</option>
-              <option value="108">610–649 (75th pct)</option>
-              <option value="90">560–609</option>
-              <option value="72">500–559 (25th pct)</option>
-              <option value="54">450–499</option>
-              <option value="36">400–449</option>
-              <option value="18">Below 400</option>
+              <option value="180">SAT 800 / ACT 36</option>
+              <option value="162">SAT 750–799 / ACT 34–35</option>
+              <option value="144">SAT 700–749 / ACT 31–33</option>
+              <option value="126">SAT 650–699 / ACT 28–30</option>
+              <option value="108">SAT 610–649 / ACT 26–27 (75th pct)</option>
+              <option value="90">SAT 560–609 / ACT 23–25</option>
+              <option value="72">SAT 500–559 / ACT 20–22 (25th pct)</option>
+              <option value="54">SAT 450–499 / ACT 17–19</option>
+              <option value="36">SAT 400–449 / ACT 14–16</option>
+              <option value="18">SAT below 400 / ACT below 14</option>
             </select>
           </div>
-          <div class="wps-note">Class of 2029: 610–720 (25th–75th percentile)</div>
+          <div class="wps-note">Class of 2029: SAT 610–720 / ACT 26–32 (25th–75th percentile)</div>
         </div>
 
         <div class="wps-field">
@@ -1038,17 +1052,17 @@ function calcResults(){
           </div>
           <select id="w-sat-verb" class="wps-select" onchange="calcWPS()">
             <option value="">— select —</option>
-            <option value="100">750–800</option>
-            <option value="90">700–749</option>
-            <option value="80">650–699</option>
-            <option value="70">610–649 (75th pct)</option>
-            <option value="60">560–609</option>
-            <option value="50">500–559 (25th pct)</option>
-            <option value="40">450–499</option>
-            <option value="30">400–449</option>
-            <option value="20">Below 400</option>
+            <option value="100">SAT 750–800 / ACT 35–36</option>
+            <option value="90">SAT 700–749 / ACT 32–34</option>
+            <option value="80">SAT 650–699 / ACT 29–31</option>
+            <option value="70">SAT 610–649 / ACT 27–28 (75th pct)</option>
+            <option value="60">SAT 560–609 / ACT 24–26</option>
+            <option value="50">SAT 500–559 / ACT 20–23 (25th pct)</option>
+            <option value="40">SAT 450–499 / ACT 17–19</option>
+            <option value="30">SAT 400–449 / ACT 14–16</option>
+            <option value="20">SAT below 400 / ACT below 14</option>
           </select>
-          <div class="wps-note">Class of 2029: 600–710 (25th–75th percentile)</div>
+          <div class="wps-note">Class of 2029: SAT 600–710 / ACT 49–66 combined (25th–75th percentile)</div>
         </div>
 
         <div class="wps-field">
