@@ -1438,28 +1438,30 @@ function renderWeightCallout(){
 
   const currentWt = wtVals[wtVals.length-1];
   const targetWt  = USNA['wt'].avg; // 190
-  const wtDiff    = currentWt - targetWt;
+  const wtDiff    = currentWt - targetWt; // positive = currently heavier than target
 
   const el = document.getElementById('weight-callout');
   const txt = document.getElementById('weight-callout-text');
   const cards = document.getElementById('weight-callout-cards');
   el.style.display = 'block';
 
-  // Impact estimates: ~0.4 pull-up per 5 lbs, ~8 sec per 5 lbs on mile
-  const puImpact  = ((wtDiff / 5) * 0.4).toFixed(1);
-  const miImpact  = Math.round((wtDiff / 5) * 8);
-  const miImpactFmt = miImpact > 0 ? `+${fmtMile(miImpact)} slower` : `${fmtMile(Math.abs(miImpact))} faster`;
-  const puImpactFmt = parseFloat(puImpact) > 0 ? `-${Math.abs(puImpact)} reps harder` : `+${Math.abs(puImpact)} reps easier`;
+  // Impact: losing weight HELPS pull-ups and mile
+  // +0.4 pull-up reps gained per 5 lbs lost
+  // ~8 sec faster mile per 5 lbs lost
+  const puGain   = Math.round((wtDiff / 5) * 0.4 * 10) / 10; // positive = more reps at target wt
+  const miGain   = Math.round((wtDiff / 5) * 8);               // positive = fewer seconds at target wt
 
   const currentPU = puVals.length ? puVals[puVals.length-1] : null;
   const currentMI = miVals.length ? miVals[miVals.length-1] : null;
-  const projPU = currentPU !== null ? Math.round((currentPU + parseFloat(puImpact) * -1) * 10)/10 : null;
-  const projMI = currentMI !== null ? currentMI - miImpact : null;
+
+  // Projected scores AT target weight
+  const projPU = currentPU !== null ? Math.round((currentPU + puGain) * 10) / 10 : null;
+  const projMI = currentMI !== null ? Math.round(currentMI - miGain) : null;
 
   if(wtDiff > 0.5){
     txt.innerHTML = `Current weight <strong style="color:#C5A028">${currentWt} lbs</strong> is ${wtDiff.toFixed(1)} lbs above the ${targetWt} lb target.
-      Reaching ${targetWt} lbs would estimate <strong style="color:#9ae6b4">+${Math.abs(puImpact)} pull-up reps</strong> and
-      <strong style="color:#9ae6b4">${fmtMile(Math.abs(miImpact))} faster mile</strong> based on body weight ratios.
+      Reaching ${targetWt} lbs would estimate <strong style="color:#9ae6b4">+${Math.abs(puGain)} pull-up reps</strong> and
+      <strong style="color:#9ae6b4">${fmtMile(Math.abs(miGain))} faster mile</strong> based on body weight ratios.
       Every 5 lbs matters most on pull-ups and the run.`;
   } else if(wtDiff < -0.5){
     txt.innerHTML = `Weight <strong style="color:#9ae6b4">${currentWt} lbs</strong> — ${Math.abs(wtDiff).toFixed(1)} lbs below the ${targetWt} lb target. Good position for pull-ups and the mile run.`;
@@ -1470,13 +1472,13 @@ function renderWeightCallout(){
   cards.innerHTML = `
     <div style="background:#1a2a3e;border-radius:6px;padding:12px 16px;text-align:center;min-width:110px">
       <div style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Pull-ups at ${targetWt} lbs</div>
-      <div style="font-size:20px;font-weight:bold;color:${projPU!==null&&projPU>=(currentPU||0)?'#9ae6b4':'#fca5a5'}">${projPU!==null?projPU+'':'—'}</div>
-      <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-top:2px">est. reps</div>
+      <div style="font-size:20px;font-weight:bold;color:${projPU!==null&&projPU>=(currentPU||0)?'#9ae6b4':'#fca5a5'}">${projPU!==null?projPU:'—'}</div>
+      <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-top:2px">est. reps (+${Math.abs(puGain)})</div>
     </div>
     <div style="background:#1a2a3e;border-radius:6px;padding:12px 16px;text-align:center;min-width:110px">
       <div style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Mile at ${targetWt} lbs</div>
       <div style="font-size:20px;font-weight:bold;color:${projMI!==null&&projMI<=(currentMI||9999)?'#9ae6b4':'#fca5a5'}">${projMI!==null?fmtMile(projMI):'—'}</div>
-      <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-top:2px">est. time</div>
+      <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-top:2px">est. time (-${fmtMile(Math.abs(miGain))})</div>
     </div>`;
 }
 </script>
@@ -1653,46 +1655,55 @@ function renderTraining(){
   container.appendChild(insightDiv);
 
   // ── Weekly schedule ───────────────────────────────────────────
-  const plyoNote = `<div class="plyo-note">💡 <strong>Plyo note:</strong> 2–3 short plyo sessions per week (10–12 min before a run or sprint) prime your fast-twitch fibers. After 3–4 consistent weeks you'll notice shuttle and sprint times drop. Box jumps, broad jumps, lateral bounds × 3 sets each — keep it explosive, not exhausting.</div>`;
+  const plyoNote = `<div class="plyo-note">💡 <strong>Plyo warmup (10 min, at home):</strong> Single-leg bounds down the hallway × 10 each leg (go), switch legs on the way back. Repeat 3 rounds. Broad jumps in place × 5. 2 × 10yd acceleration burst. No box needed — just floor space. Do this immediately before sprint work to prime fast-twitch fibers.</div>`;
+
+  const rhrNote = `<div class="plyo-note" style="border-color:#22c55e;background:#f0fdf4">❤️ <strong>RHR 40–46 bpm</strong> — elite aerobic base. This means his cardiovascular system is recovering efficiently and his mile time has real upside. Keep the easy runs truly easy to protect this adaptation.</div>`;
 
   const days = [
     {
       label: 'Monday',
-      content: `<span class="tag tag-pull">Pull-ups GTG</span><span class="tag tag-push">Push-ups</span><span class="tag tag-run">Easy Run</span>
-        <br>Morning: ${puGTGset} pull-ups × 5 sets (sub-max, spread across day). 3 sets max push-ups. Evening: 20–25 min easy run at ${miPace}/mi pace — conversational effort.
-        ${plyoNote}`
+      content: `<span class="tag tag-pull">Strength</span><span class="tag tag-run">2 Mile Run</span><span class="tag tag-pull">Pull-ups GTG</span>
+        <br><strong>Morning:</strong> Strength training (M–F standard). Pull-up GTG: ${puGTGset} reps × 5 sets spread through day.
+        <br><strong>Run:</strong> 2 miles at comfortable pace (~${miPace}/mi). Truly easy — conversational effort protects that RHR adaptation.
+        ${rhrNote}`
     },
     {
       label: 'Tuesday',
-      content: `<span class="tag tag-plyo">Plyo</span><span class="tag tag-shuttle">Shuttle Sprints</span><span class="tag tag-pull">Pull-ups GTG</span>
-        <br>Morning: 10 min plyo warmup (box jumps × 5, broad jumps × 5, lateral bounds × 5 — 3 rounds). Then 6–8 × 40yd shuttle practice with full rest. Pull-up GTG throughout day.
+      content: `<span class="tag tag-plyo">Plyo Warmup</span><span class="tag tag-shuttle">Sprint Pyramids</span><span class="tag tag-pull">Strength + GTG</span>
+        <br><strong>Morning:</strong> 10 min home plyo warmup, then sprint pyramids (10yd → 20yd → 30yd → 40yd → 30yd → 20yd → 10yd, full rest between) OR 30 min sprint session. Strength training after.
+        <br><strong>Pull-up GTG:</strong> ${puGTGset} reps × 5 sets throughout day.
         ${plyoNote}`
     },
     {
       label: 'Wednesday',
-      content: `<span class="tag tag-push">Push-ups</span><span class="tag tag-cfa">Crunches</span><span class="tag tag-run">Interval Run</span>
-        <br>2 min max push-ups + 2 min max crunches (CFA-style). Run: 4 × 400m at goal mile pace with 90 sec rest. Core finisher: 3 × max crunches.`
+      content: `<span class="tag tag-pull">Strength</span><span class="tag tag-run">2 Mile Run</span><span class="tag tag-push">Push-ups</span><span class="tag tag-cfa">Crunches</span>
+        <br><strong>Morning:</strong> Strength training. 2 mile run — easy effort.
+        <br><strong>CFA work:</strong> 2 min max push-ups + 2 min max crunches (practice official form and cadence). Pull-up GTG: ${puGTGset} reps × 4–5 sets.`
     },
     {
       label: 'Thursday',
-      content: `<span class="tag tag-plyo">Plyo</span><span class="tag tag-pull">Pull-ups</span><span class="tag tag-run">Tempo Run</span>
-        <br>Morning: 10 min plyo warmup before the run. 20 min tempo run (comfortably hard, ~30 sec/mi faster than easy pace). Pull-up GTG throughout day. ${puGTGset} reps × 5 sets.
+      content: `<span class="tag tag-plyo">Plyo Warmup</span><span class="tag tag-shuttle">Sprint Pyramids</span><span class="tag tag-pull">Strength + GTG</span>
+        <br><strong>Morning:</strong> 10 min home plyo warmup, then sprint pyramids OR 30 min sprint session (same as Tuesday). Strength training after.
+        <br><strong>Pull-up GTG:</strong> ${puGTGset} reps × 5 sets. Basketball throw practice: 10 min, focus on hip rotation.
         ${plyoNote}`
     },
     {
       label: 'Friday',
-      content: `<span class="tag tag-cfa">Full CFA Simulation</span>
-        <br><strong>Once monthly only</strong> — run all 6 events in sequence with official timing (2 min work, 3 min rest). Every other Friday: push-ups + crunches only at max effort. Basketball throw practice: 10–15 throws focusing on hip rotation and follow-through.`
+      content: `<span class="tag tag-pull">Strength</span><span class="tag tag-run">2 Mile Run</span><span class="tag tag-pull">Pull-ups GTG</span>
+        <br><strong>Normal week:</strong> Strength training + 2 mile run + pull-up GTG as usual.
+        <br><strong style="color:#991b1b">CFA sim week (once/month):</strong> REST — no strength, no run, no intensity. Full rest Friday and Saturday before Sunday sim. Light walk only.`
     },
     {
       label: 'Saturday',
-      content: `<span class="tag tag-run">Long Run</span><span class="tag tag-push">Push-ups</span>
-        <br>30–40 min easy long run (builds aerobic base for mile). 3 × max push-ups throughout the day. Optional: basketball throw practice (10 min).`
+      content: `<span class="tag tag-rest">Rest Day — Always</span>
+        <br>Complete rest every Saturday. No training. Sleep in, eat well, recover. 
+        <br><strong style="color:#991b1b">CFA sim week:</strong> Extra important — full rest before Sunday simulation.`
     },
     {
       label: 'Sunday',
-      content: `<span class="tag tag-rest">Active Rest</span><span class="tag tag-pull">Pull-ups GTG</span>
-        <br>Light walk or swim. Pull-up GTG continues — ${puGTGset} reps × 3–4 sets. No high-intensity work. Focus on sleep and nutrition.`
+      content: `<span class="tag tag-cfa">Full CFA Sim (monthly)</span><span class="tag tag-rest">Active Rest (other weeks)</span>
+        <br><strong>Once per month:</strong> Full CFA simulation in official sequence — basketball throw, pull-ups, shuttle, crunches, push-ups, 1-mile run. Official timing (2 min work, 3 min rest between events, 8 min before mile).
+        <br><strong>Other Sundays:</strong> Active rest. Light walk, mobility work. Pull-up GTG: ${puGTGset} reps × 3 sets max. No intensity.`
     },
   ];
 
@@ -1700,8 +1711,8 @@ function renderTraining(){
   weekDiv.className = 'week-block';
   weekDiv.innerHTML = `
     <div class="week-header">
-      <span class="week-title">Weekly Template</span>
-      <span class="week-focus">Adjust intensity based on how legs/shoulders feel</span>
+      <span class="week-title">Weekly Training Structure</span>
+      <span class="week-focus">Strength M–F · Sprints Tue/Thu · 2mi Run Mon/Wed/Fri · Rest Sat · CFA Sim Sun (monthly)</span>
     </div>
     ${days.map(d=>`
       <div class="day-row">
@@ -1730,11 +1741,15 @@ function renderTraining(){
     </div>
     <div class="day-row">
       <div class="day-label">When to see it</div>
-      <div class="day-content">Nervous system adapts in <strong>2–3 weeks</strong>. Expect first noticeable jump at the 3-week mark. Strength gains compound — once you hit 4 clean reps, 8 follows faster than 2 → 4 did.</div>
+      <div class="day-content">Nervous system adapts in <strong>2–3 weeks</strong>. Expect first noticeable jump at the 3-week mark. Strength gains compound — once you hit 4 clean reps, 8 follows faster than 2→4 did.</div>
     </div>
     <div class="day-row">
       <div class="day-label">CFA form</div>
       <div class="day-content">Pronated grip (palms away). Dead hang start. Chin clears bar. No kipping or swinging. Practice cadence pull-ups — USNA uses a commanded pace, not max speed.</div>
+    </div>
+    <div class="day-row">
+      <div class="day-label">RHR note</div>
+      <div class="day-content">RHR 40–46 bpm is an excellent sign — his nervous system is recovering well between GTG sets. This means he can handle the daily volume without overtraining.</div>
     </div>
   `;
   container.appendChild(gtgDiv);
@@ -1744,24 +1759,24 @@ function renderTraining(){
   plyoDiv.className = 'week-block';
   plyoDiv.innerHTML = `
     <div class="week-header">
-      <span class="week-title">Plyometrics for Shuttle + Sprint Speed</span>
-      <span class="week-focus">2–3× per week, 10–12 min before runs or sprint work</span>
+      <span class="week-title">Home Plyometrics for Shuttle + Sprint Speed</span>
+      <span class="week-focus">Tue + Thu mornings, 10 min before sprints — no equipment needed</span>
     </div>
     <div class="day-row">
       <div class="day-label">Why before</div>
-      <div class="day-content">Plyo primes fast-twitch fibers and activates the stretch-shortening cycle. Running immediately after captures that neuromuscular activation — your stride rate and ground contact time improve within the same session.</div>
+      <div class="day-content">Plyo primes fast-twitch fibers and activates the stretch-shortening cycle. Running sprints immediately after captures that neuromuscular activation — stride rate and ground contact time improve within the same session.</div>
     </div>
     <div class="day-row">
-      <div class="day-label">Session</div>
-      <div class="day-content"><strong>3 rounds, ~10 min total:</strong><br>• Box jumps × 5 (step down, don't jump down)<br>• Broad jumps × 5 (max distance, stick the landing)<br>• Lateral bounds × 5 each side (shuttle-specific)<br>• 2 × 10yd acceleration sprint<br>60 sec rest between rounds</div>
+      <div class="day-label">The session</div>
+      <div class="day-content"><strong>3 rounds, ~10 min, in the hallway:</strong><br>• Single-leg bounds down the hall × 10 each leg → switch legs on the way back (great for shuttle lateral power)<br>• Broad jumps × 5 in place (max distance, stick the landing)<br>• 2 × 10yd acceleration burst<br>60 sec rest between rounds. Explosive but not exhausting.</div>
     </div>
     <div class="day-row">
       <div class="day-label">Timeline</div>
-      <div class="day-content"><strong>Week 1–2:</strong> Legs feel heavy after, slight soreness — normal.<br><strong>Week 3–4:</strong> Activation starts feeling natural, stride feels snappier.<br><strong>Week 5+:</strong> Measurable improvement in shuttle time and first 200m of the mile. Most athletes notice 0.2–0.4 sec off shuttle by week 4–6.</div>
+      <div class="day-content"><strong>Weeks 1–2:</strong> Legs may feel heavy after — normal, adaptation happening.<br><strong>Weeks 3–4:</strong> Stride starts feeling snappier, first turns on shuttle feel quicker.<br><strong>Weeks 5–6:</strong> Measurable drop in shuttle time. Most athletes see 0.2–0.4 sec improvement by week 5–6 with consistent Tue/Thu plyo. His current 9.5 sec has real room to drop.</div>
     </div>
     <div class="day-row">
       <div class="day-label">Rules</div>
-      <div class="day-content">Quality over quantity — if form breaks down, stop. Never do heavy plyo the day before a full CFA simulation. Rest at least 48h between plyo sessions.</div>
+      <div class="day-content">Quality over quantity — if form breaks down, stop the round. Never do plyo the day before a full CFA simulation (Fri/Sat are rest on sim week). At least 48h between plyo sessions, which Tue/Thu naturally provides.</div>
     </div>
   `;
   container.appendChild(plyoDiv);
