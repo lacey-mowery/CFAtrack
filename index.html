@@ -1621,13 +1621,13 @@ function renderTraining(){
 
   const topPriority = priorities.filter(p=>!p.onTrack).slice(0,3).map(p=>p.key);
 
-  // Pull-up specific reps for GTG context
-  const puCurrent = latest['pu'] || 2;
-  const puGTGset = Math.max(1, Math.floor(puCurrent * 0.6));
+  // Pull-up GTG — latest from LOG, GTG set = half of max rounded to nearest whole
+  const puCurrent = latest['pu'] !== null ? latest['pu'] : 2;
+  const puGTGset  = Math.max(1, Math.round(puCurrent / 2));
 
   // Mile current for pacing context
   const miCurrent = latest['mi'] || 487;
-  const miPace = fmtMile(Math.round(miCurrent / 1.05)); // target easy pace
+  const miPace = fmtMile(Math.round(miCurrent / 1.05));
 
   container.innerHTML = '';
 
@@ -1662,48 +1662,56 @@ function renderTraining(){
   const days = [
     {
       label: 'Monday',
-      content: `<span class="tag tag-pull">Strength</span><span class="tag tag-run">2 Mile Run</span><span class="tag tag-pull">Pull-ups GTG</span>
-        <br><strong>Morning:</strong> Strength training (M–F standard). Pull-up GTG: ${puGTGset} reps × 5 sets spread through day.
-        <br><strong>Run:</strong> 2 miles at comfortable pace (~${miPace}/mi). Truly easy — conversational effort protects that RHR adaptation.
+      content: `<span class="tag tag-run">2 Mile Run</span><span class="tag tag-pull">GTG</span><span class="tag tag-pull">Strength</span>
+        <br><strong>Morning:</strong> 2 mile run. Home plyo warmup optional before the run.
+        <br><strong>Evening:</strong> Strength training.
+        <br><strong>Throughout day:</strong> Pull-up GTG — ${puGTGset} reps × 5 sets.
         ${rhrNote}`
     },
     {
       label: 'Tuesday',
-      content: `<span class="tag tag-plyo">Plyo Warmup</span><span class="tag tag-shuttle">Sprint Pyramids</span><span class="tag tag-pull">Strength + GTG</span>
-        <br><strong>Morning:</strong> 10 min home plyo warmup, then sprint pyramids (10yd → 20yd → 30yd → 40yd → 30yd → 20yd → 10yd, full rest between) OR 30 min sprint session. Strength training after.
-        <br><strong>Pull-up GTG:</strong> ${puGTGset} reps × 5 sets throughout day.
+      content: `<span class="tag tag-plyo">Plyo Warmup</span><span class="tag tag-shuttle">Sprint Training</span><span class="tag tag-pull">GTG</span><span class="tag tag-pull">Strength</span>
+        <br><strong>Morning:</strong> 10 min home plyo warmup, then sprint training.
+        <br><strong>Evening:</strong> Strength training.
+        <br><strong>Throughout day:</strong> Pull-up GTG — ${puGTGset} reps × 5 sets.
+        <br><strong>5 min when you can:</strong> Max push-ups or max crunches in CFA form.
         ${plyoNote}`
     },
     {
       label: 'Wednesday',
-      content: `<span class="tag tag-pull">Strength</span><span class="tag tag-run">2 Mile Run</span><span class="tag tag-push">Push-ups</span><span class="tag tag-cfa">Crunches</span>
-        <br><strong>Morning:</strong> Strength training. 2 mile run — easy effort.
-        <br><strong>CFA work:</strong> 2 min max push-ups + 2 min max crunches (practice official form and cadence). Pull-up GTG: ${puGTGset} reps × 4–5 sets.`
+      content: `<span class="tag tag-run">2 Mile Run</span><span class="tag tag-pull">GTG</span><span class="tag tag-pull">Strength</span>
+        <br><strong>Morning:</strong> 2 mile run.
+        <br><strong>Evening:</strong> Strength training.
+        <br><strong>Throughout day:</strong> Pull-up GTG — ${puGTGset} reps × 5 sets.
+        <br><strong>5 min when you can:</strong> Max push-ups or max crunches in CFA form.`
     },
     {
       label: 'Thursday',
-      content: `<span class="tag tag-plyo">Plyo Warmup</span><span class="tag tag-shuttle">Sprint Pyramids</span><span class="tag tag-pull">Strength + GTG</span>
-        <br><strong>Morning:</strong> 10 min home plyo warmup, then sprint pyramids OR 30 min sprint session (same as Tuesday). Strength training after.
-        <br><strong>Pull-up GTG:</strong> ${puGTGset} reps × 5 sets. Basketball throw practice: 10 min, focus on hip rotation.
+      content: `<span class="tag tag-plyo">Plyo Warmup</span><span class="tag tag-shuttle">Sprint Training</span><span class="tag tag-pull">GTG</span><span class="tag tag-pull">Strength</span>
+        <br><strong>Morning:</strong> 10 min home plyo warmup, then sprint training.
+        <br><strong>Evening:</strong> Strength training.
+        <br><strong>Throughout day:</strong> Pull-up GTG — ${puGTGset} reps × 5 sets.
+        <br><strong>5 min when you can:</strong> Basketball throw practice — 10 throws, focus on hip rotation.
         ${plyoNote}`
     },
     {
       label: 'Friday',
-      content: `<span class="tag tag-pull">Strength</span><span class="tag tag-run">2 Mile Run</span><span class="tag tag-pull">Pull-ups GTG</span>
-        <br><strong>Normal week:</strong> Strength training + 2 mile run + pull-up GTG as usual.
-        <br><strong style="color:#991b1b">CFA sim week (once/month):</strong> REST — no strength, no run, no intensity. Full rest Friday and Saturday before Sunday sim. Light walk only.`
+      content: `<span class="tag tag-run">2 Mile Run</span><span class="tag tag-pull">GTG</span><span class="tag tag-pull">Strength</span>
+        <br><strong>Morning:</strong> 2 mile run.
+        <br><strong>Evening:</strong> Strength training.
+        <br><strong>Throughout day:</strong> Pull-up GTG — ${puGTGset} reps × 5 sets.
+        <br><span style="color:#991b1b"><strong>CFA sim week (every 2 weeks):</strong> REST — no running, no strength, no intensity. Full rest Friday and Saturday before Sunday sim.</span>`
     },
     {
       label: 'Saturday',
       content: `<span class="tag tag-rest">Rest Day — Always</span>
-        <br>Complete rest every Saturday. No training. Sleep in, eat well, recover. 
-        <br><strong style="color:#991b1b">CFA sim week:</strong> Extra important — full rest before Sunday simulation.`
+        <br>Complete rest every Saturday. No training. Sleep, eat, recover.`
     },
     {
       label: 'Sunday',
-      content: `<span class="tag tag-cfa">Full CFA Sim (monthly)</span><span class="tag tag-rest">Active Rest (other weeks)</span>
-        <br><strong>Once per month:</strong> Full CFA simulation in official sequence — basketball throw, pull-ups, shuttle, crunches, push-ups, 1-mile run. Official timing (2 min work, 3 min rest between events, 8 min before mile).
-        <br><strong>Other Sundays:</strong> Active rest. Light walk, mobility work. Pull-up GTG: ${puGTGset} reps × 3 sets max. No intensity.`
+      content: `<span class="tag tag-cfa">Full CFA Sim (every 2 weeks)</span><span class="tag tag-rest">Active Rest (off weeks)</span>
+        <br><strong>Every 2 weeks:</strong> Full CFA simulation in official sequence — basketball throw, pull-ups, shuttle, crunches, push-ups, 1-mile run. Official timing: 2 min work, 3 min rest per event, 8 min rest before mile.
+        <br><strong>Off weeks:</strong> Active rest only. Light walk, mobility work. Pull-up GTG: ${puGTGset} reps × 3 sets max.`
     },
   ];
 
@@ -1712,7 +1720,7 @@ function renderTraining(){
   weekDiv.innerHTML = `
     <div class="week-header">
       <span class="week-title">Weekly Training Structure</span>
-      <span class="week-focus">Strength M–F · Sprints Tue/Thu · 2mi Run Mon/Wed/Fri · Rest Sat · CFA Sim Sun (monthly)</span>
+      <span class="week-focus">Run mornings (Mon/Wed/Fri) · Sprints mornings (Tue/Thu) · Strength evenings (M–F) · Rest Sat · CFA Sim Sun (every 2 weeks)</span>
     </div>
     ${days.map(d=>`
       <div class="day-row">
@@ -1733,7 +1741,7 @@ function renderTraining(){
     </div>
     <div class="day-row">
       <div class="day-label">What</div>
-      <div class="day-content">Sub-maximal sets spread throughout the day. Current max ~${Math.round(puCurrent)} reps → do <strong>${puGTGset} reps per set</strong>. Never go to failure.</div>
+      <div class="day-content">Sub-maximal sets spread throughout the day. Current max from log: <strong>${puCurrent} reps</strong> → GTG set = half, rounded = <strong>${puGTGset} reps per set</strong>. Never go to failure. Updates automatically as you log new scores.</div>
     </div>
     <div class="day-row">
       <div class="day-label">How</div>
