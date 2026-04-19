@@ -1888,22 +1888,65 @@ function renderScores(){
   const ss = getSuperscore();
   const cards = document.getElementById('superscore-cards');
   const cardStyle = 'background:#0d1b2e;border-radius:8px;padding:16px 20px';
-  const lbl = (t,c='rgba(255,255,255,0.5)') => `<div style="font-size:10px;color:${c};text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">${t}</div>`;
+  const lbl = (t) => `<div style="font-size:10px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">${t}</div>`;
   const big = (v,c='#C5A028') => `<div style="font-size:28px;font-weight:bold;color:${c};line-height:1">${v??'—'}</div>`;
   const sub = (t) => `<div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:3px">${t}</div>`;
+  const pctBar = (v, lo, hi, lolbl, hilbl) => {
+    if(v===null) return '';
+    const mid = (lo+hi)/2;
+    const clr = v>=mid ? '#9ae6b4' : v>=lo ? '#C5A028' : '#fca5a5';
+    const pct = Math.min(100, Math.max(0, ((v-lo)/(hi-lo))*100));
+    return `<div style="margin-top:6px">
+      <div style="display:flex;justify-content:space-between;font-size:9px;color:rgba(255,255,255,0.3);margin-bottom:2px">
+        <span>25th: ${lolbl}</span><span>75th: ${hilbl}</span>
+      </div>
+      <div style="background:rgba(255,255,255,0.1);border-radius:3px;height:5px;position:relative">
+        <div style="width:${pct}%;height:5px;border-radius:3px;background:${clr};transition:width 0.4s"></div>
+      </div>
+      <div style="font-size:10px;color:${clr};margin-top:3px;font-weight:bold">${v>=mid?'Above midpoint — closer to 75th':'Below midpoint — closer to 25th'}</div>
+    </div>`;
+  };
+
+  // Color helpers using midpoint logic
+  const satMathClr  = ss.satMath  ? (ss.satMath  >= 665 ? '#9ae6b4' : ss.satMath  >= 610 ? '#C5A028' : '#fca5a5') : '#C5A028';
+  const satVerbClr  = ss.satVerbal? (ss.satVerbal >= 655 ? '#9ae6b4' : ss.satVerbal >= 600 ? '#C5A028' : '#fca5a5') : '#C5A028';
+  const satTotalClr = ss.satTotal ? (ss.satTotal  >=1320 ? '#9ae6b4' : ss.satTotal  >=1210 ? '#C5A028' : '#fca5a5') : '#C5A028';
+  const actCompClr  = ss.actComp  ? (ss.actComp  >= 28   ? '#9ae6b4' : ss.actComp  >= 25   ? '#C5A028' : '#fca5a5') : '#C5A028';
+  const actMathClr  = ss.actMath  ? (ss.actMath  >= 28   ? '#9ae6b4' : ss.actMath  >= 25   ? '#C5A028' : '#fca5a5') : '#C5A028';
+  const actEngClr   = ss.actEng   ? (ss.actEng   >= 28.5 ? '#9ae6b4' : ss.actEng   >= 24   ? '#C5A028' : '#fca5a5') : '#C5A028';
 
   cards.innerHTML = `
     <div style="${cardStyle}">
-      ${lbl('SAT Superscore')}${big(ss.satTotal)}${sub(`Math: ${ss.satMath??'—'} · R&W: ${ss.satVerbal??'—'}`)}
+      ${lbl('SAT Superscore')}
+      ${big(ss.satTotal, satTotalClr)}
+      ${sub(`Math: ${ss.satMath??'—'} · R&W: ${ss.satVerbal??'—'}`)}
+      ${pctBar(ss.satTotal, 1210, 1430, '1210', '1430')}
     </div>
     <div style="${cardStyle}">
-      ${lbl('ACT Composite (best)')}${big(ss.actComp)}${sub(`Math: ${ss.actMath??'—'} · Eng: ${ss.actEng??'—'} · Sci: ${ss.actSci??'—'} · Rdg: ${ss.actRdg??'—'}`)}
+      ${lbl('SAT Math Best')}
+      ${big(ss.satMath, satMathClr)}
+      ${pctBar(ss.satMath, 610, 720, '610', '720')}
     </div>
     <div style="${cardStyle}">
-      ${lbl('SAT Math Best')}${big(ss.satMath, ss.satMath>=660?'#9ae6b4':ss.satMath>=600?'#C5A028':'#fca5a5')}${sub('USNA 25th–75th: 610–720')}
+      ${lbl('SAT Verbal / R&W Best')}
+      ${big(ss.satVerbal, satVerbClr)}
+      ${pctBar(ss.satVerbal, 600, 710, '600', '710')}
     </div>
     <div style="${cardStyle}">
-      ${lbl('SAT Verbal Best')}${big(ss.satVerbal, ss.satVerbal>=660?'#9ae6b4':ss.satVerbal>=600?'#C5A028':'#fca5a5')}${sub('USNA 25th–75th: 600–710')}
+      ${lbl('ACT Composite (best)')}
+      ${big(ss.actComp, actCompClr)}
+      ${sub(`Math: <span style="color:${actMathClr};font-weight:bold">${ss.actMath??'—'}</span> · Eng: <span style="color:${actEngClr};font-weight:bold">${ss.actEng??'—'}</span> · Sci: ${ss.actSci??'—'} · Rdg: ${ss.actRdg??'—'}`)}
+      ${pctBar(ss.actComp, 25, 31, '25', '31')}
+    </div>
+    <div style="${cardStyle}">
+      ${lbl('ACT Math Best')}
+      ${big(ss.actMath, actMathClr)}
+      ${pctBar(ss.actMath, 25, 31, '25', '31')}
+    </div>
+    <div style="${cardStyle}">
+      ${lbl('ACT English Best')}
+      ${big(ss.actEng, actEngClr)}
+      ${pctBar(ss.actEng, 24, 33, '24', '33')}
     </div>
   `;
 
@@ -2232,7 +2275,7 @@ function renderMeasurements(){
         <span class="m-chart-target">${ch.targetLabel||''}</span>
       </div>
       <div class="bd-legend" style="padding:8px 14px">
-        ${ch.series.map(s=>`<div class="bd-leg-item"><div class="leg-solid" style="background:${s.color}"></div> ${s.label}</div>`).join('')}
+        ${ch.series.map(s=>`<div class="bd-leg-item"><div class="leg-dashed" style="border-color:${s.color};width:18px;height:0;border-top:2px dashed"></div> ${s.label}</div>`).join('')}
         ${ch.targetLo?`<div class="bd-leg-item"><div class="leg-dashed" style="border-color:#888;width:18px;height:0;border-top:2px dashed"></div> Target range</div>`:''}
       </div>
       <div class="m-chart-wrap"><canvas id="mc-${ch.id}"></canvas></div>
@@ -2253,6 +2296,7 @@ function renderMeasurements(){
       borderColor: s.color,
       backgroundColor:'transparent',
       borderWidth:2,
+      borderDash:[6,4],
       pointRadius:4,
       pointBackgroundColor:s.color,
       tension:0,
