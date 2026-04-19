@@ -274,6 +274,7 @@ body{font-family:'Arial',sans-serif;background:#f0f2f5;color:#1a1a2e;font-size:1
   <div class="nav-tab" onclick="showPage('wps',this)">Whole Person Multiple</div>
   <div class="nav-tab" onclick="showPage('training',this)">Training Plan</div>
   <div class="nav-tab" onclick="showPage('scores',this)">Test Scores</div>
+  <div class="nav-tab" onclick="showPage('measurements',this)">Measurements</div>
 </div>
 
 <!-- ═══════════ OVERVIEW ═══════════ -->
@@ -1965,9 +1966,388 @@ showPage = function(id, el){
   _origShowPage(id, el);
   if(id==='training') renderTraining();
   if(id==='scores') renderScores();
+  if(id==='measurements') renderMeasurements();
 };
 
 initTestScores();
+</script>
+
+<!-- ═══════════ MEASUREMENTS PAGE ═══════════ -->
+<div class="page" id="page-measurements">
+  <div style="margin-bottom:20px">
+    <div class="page-title" style="color:#001F5B;font-size:20px;font-weight:bold">Body Measurements</div>
+    <div style="font-size:12px;color:#666;margin-top:4px">Tracking recomp progress. Logs saved to Supabase. Charts update as entries are added.</div>
+  </div>
+
+  <!-- Entry form -->
+  <div style="background:#0d1b2e;border-radius:8px;padding:22px;margin-bottom:20px">
+    <div style="color:#C5A028;font-size:11px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:16px">Log Measurements</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px">
+      <div class="form-field"><label>Date</label><input type="date" id="m-date"></div>
+      <div class="form-field"><label>Weight (lbs)</label><input type="number" id="m-weight" step="0.1" placeholder="191.4"></div>
+      <div class="form-field"><label>Neck (in)</label><input type="number" id="m-neck" step="0.25" placeholder="16"></div>
+      <div class="form-field"><label>Shoulders (in)</label><input type="number" id="m-shoulders" step="0.25" placeholder="49.5"></div>
+      <div class="form-field"><label>Chest (in)</label><input type="number" id="m-chest" step="0.25" placeholder="41.5"></div>
+      <div class="form-field"><label>Waist / Navel (in)</label><input type="number" id="m-waist" step="0.25" placeholder="36.5"></div>
+      <div class="form-field"><label>Hips (in)</label><input type="number" id="m-hips" step="0.25" placeholder="40.5"></div>
+      <div class="form-field"><label>R Bicep Flexed (in)</label><input type="number" id="m-bicep-r-flex" step="0.25" placeholder="15"></div>
+      <div class="form-field"><label>R Bicep Relaxed (in)</label><input type="number" id="m-bicep-r-relax" step="0.25" placeholder="13"></div>
+      <div class="form-field"><label>L Bicep Flexed (in)</label><input type="number" id="m-bicep-l-flex" step="0.25" placeholder="14.75"></div>
+      <div class="form-field"><label>L Bicep Relaxed (in)</label><input type="number" id="m-bicep-l-relax" step="0.25" placeholder="12.5"></div>
+      <div class="form-field"><label>R Forearm (in)</label><input type="number" id="m-forearm-r" step="0.25" placeholder="11.75"></div>
+      <div class="form-field"><label>L Forearm (in)</label><input type="number" id="m-forearm-l" step="0.25" placeholder="11.5"></div>
+      <div class="form-field"><label>R Thigh Flexed (in)</label><input type="number" id="m-thigh-r-flex" step="0.25" placeholder="23"></div>
+      <div class="form-field"><label>R Thigh Relaxed (in)</label><input type="number" id="m-thigh-r-relax" step="0.25" placeholder="22.5"></div>
+      <div class="form-field"><label>L Thigh Flexed (in)</label><input type="number" id="m-thigh-l-flex" step="0.25" placeholder="22.5"></div>
+      <div class="form-field"><label>L Thigh Relaxed (in)</label><input type="number" id="m-thigh-l-relax" step="0.25" placeholder="22"></div>
+      <div class="form-field"><label>R Calf (in)</label><input type="number" id="m-calf-r" step="0.25" placeholder="15"></div>
+      <div class="form-field"><label>L Calf (in)</label><input type="number" id="m-calf-l" step="0.25" placeholder="15"></div>
+    </div>
+    <button class="btn-save" id="m-save-btn" onclick="saveMeasurement()">Save Measurements</button>
+  </div>
+
+  <!-- Key ratios summary -->
+  <div id="m-ratios" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px"></div>
+
+  <!-- Charts grid -->
+  <div id="m-charts-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:16px;margin-bottom:20px"></div>
+
+  <!-- History table -->
+  <div class="session-history">
+    <div class="sh-header"><h3>Measurement History</h3></div>
+    <div style="overflow-x:auto">
+      <table class="log-table" id="m-table">
+        <thead><tr>
+          <th>Date</th><th>Weight</th><th>Shoulders</th><th>Chest</th><th>Waist</th>
+          <th>Hips</th><th>R Bicep</th><th>R Thigh</th><th>S/W Ratio</th><th></th>
+        </tr></thead>
+        <tbody id="m-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+.m-ratio-card{background:#0d1b2e;border-radius:8px;padding:14px 18px}
+.m-ratio-label{font-size:10px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.m-ratio-val{font-size:24px;font-weight:bold;line-height:1}
+.m-ratio-target{font-size:11px;color:rgba(255,255,255,0.35);margin-top:4px}
+.m-ratio-delta{font-size:11px;font-weight:bold;margin-top:2px}
+.m-chart-card{background:#fff;border-radius:8px;border:1px solid #e2e8f0;overflow:hidden}
+.m-chart-header{background:#0d1b2e;padding:10px 16px;display:flex;align-items:center;justify-content:space-between}
+.m-chart-title{color:#C5A028;font-size:11px;font-weight:bold;letter-spacing:1px;text-transform:uppercase}
+.m-chart-target{color:rgba(255,255,255,0.5);font-size:11px}
+.m-chart-wrap{padding:12px;position:relative;height:180px}
+@media(max-width:640px){
+  #m-charts-grid{grid-template-columns:1fr}
+  .m-chart-wrap{height:160px}
+}
+</style>
+
+<script>
+// ═══════════════════════════════════════════════
+// MEASUREMENTS
+// ═══════════════════════════════════════════════
+let MEASUREMENTS = [];
+const mCharts = {};
+
+const MEAS_SEED = [{
+  date:'2026-04-01',
+  weight:191.4, neck:16, shoulders:49.5, chest:41.5,
+  waist:36.5, hips:40.5,
+  bicep_r_flex:15, bicep_r_relax:13,
+  bicep_l_flex:14.75, bicep_l_relax:12.5,
+  forearm_r:11.75, forearm_l:11.5,
+  thigh_r_flex:23, thigh_r_relax:22.5,
+  thigh_l_flex:22.5, thigh_l_relax:22,
+  calf_r:15, calf_l:15,
+  notes:'Baseline — 8 weeks into recomp'
+}];
+
+// Targets
+const MEAS_TARGETS = {
+  weight:   {lo:183, hi:187, label:'183–187 lbs', lower:true},
+  waist:    {lo:33.5, hi:35, label:'33.5–35 in', lower:true},
+  shoulders:{lo:48, hi:50, label:'48–50 in', lower:false},
+  chest:    {lo:41, hi:43, label:'41–43 in', lower:false},
+  hips:     {lo:38, hi:39.5, label:'38–39.5 in', lower:true},
+  sw_ratio: {lo:1.42, hi:1.48, label:'1.42–1.48', lower:false},
+};
+
+// Chart definitions — groups of measurements to show on one chart
+const M_CHARTS = [
+  {
+    id:'weight', title:'Weight', targetLabel:'Target: 183–187 lbs',
+    series:[{key:'weight', label:'Weight', color:'#2b5daf'}],
+    targetLo:183, targetHi:187, unit:'lbs', lower:true
+  },
+  {
+    id:'torso', title:'Shoulders / Chest / Waist / Hips', targetLabel:'Waist target: 33.5–35 in',
+    series:[
+      {key:'shoulders', label:'Shoulders', color:'#5a4fcf'},
+      {key:'chest',     label:'Chest',     color:'#2b5daf'},
+      {key:'waist',     label:'Waist',     color:'#8b2121'},
+      {key:'hips',      label:'Hips',      color:'#8b2157'},
+    ],
+    targetKey:'waist', targetLo:33.5, targetHi:35, unit:'in', lower:false
+  },
+  {
+    id:'arms', title:'Biceps (flexed) + Forearms', targetLabel:'Target: maintain 14.5–15.5 in',
+    series:[
+      {key:'bicep_r_flex',  label:'R Bicep (flex)', color:'#1a7a4a'},
+      {key:'bicep_l_flex',  label:'L Bicep (flex)', color:'#8B6914'},
+      {key:'forearm_r',     label:'R Forearm',      color:'#5a4fcf'},
+      {key:'forearm_l',     label:'L Forearm',      color:'#2b5daf'},
+    ],
+    targetLo:14.5, targetHi:15.5, unit:'in', lower:false
+  },
+  {
+    id:'legs', title:'Thighs + Calves', targetLabel:'Target: maintain',
+    series:[
+      {key:'thigh_r_flex', label:'R Thigh (flex)', color:'#1a7a4a'},
+      {key:'thigh_l_flex', label:'L Thigh (flex)', color:'#8B6914'},
+      {key:'calf_r',       label:'R Calf',         color:'#2b5daf'},
+      {key:'calf_l',       label:'L Calf',         color:'#8b2157'},
+    ],
+    unit:'in', lower:false
+  },
+];
+
+function mGet(id){ return parseFloat(document.getElementById(id).value)||null; }
+
+async function saveMeasurement(){
+  const date = document.getElementById('m-date').value;
+  if(!date){alert('Please enter a date.');return;}
+  const row = {
+    date,
+    weight:mGet('m-weight'), neck:mGet('m-neck'),
+    shoulders:mGet('m-shoulders'), chest:mGet('m-chest'),
+    waist:mGet('m-waist'), hips:mGet('m-hips'),
+    bicep_r_flex:mGet('m-bicep-r-flex'), bicep_r_relax:mGet('m-bicep-r-relax'),
+    bicep_l_flex:mGet('m-bicep-l-flex'), bicep_l_relax:mGet('m-bicep-l-relax'),
+    forearm_r:mGet('m-forearm-r'), forearm_l:mGet('m-forearm-l'),
+    thigh_r_flex:mGet('m-thigh-r-flex'), thigh_r_relax:mGet('m-thigh-r-relax'),
+    thigh_l_flex:mGet('m-thigh-l-flex'), thigh_l_relax:mGet('m-thigh-l-relax'),
+    calf_r:mGet('m-calf-r'), calf_l:mGet('m-calf-l'),
+  };
+  const btn = document.getElementById('m-save-btn');
+  btn.textContent='Saving…'; btn.disabled=true;
+  try{
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/body_measurements`,{
+      method:'POST',
+      headers:{apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`,
+        'Content-Type':'application/json', Prefer:'return=representation'},
+      body:JSON.stringify(row)
+    });
+    if(!r.ok) throw new Error(await r.text());
+    const [saved]=await r.json();
+    MEASUREMENTS.push(saved);
+    MEASUREMENTS.sort((a,b)=>a.date.localeCompare(b.date));
+    document.querySelectorAll('#page-measurements input[type=number]').forEach(el=>el.value='');
+    renderMeasurements();
+    btn.textContent='Saved ✓'; btn.style.background='#1a7a4a';
+    setTimeout(()=>{btn.textContent='Save Measurements';btn.style.background='';btn.disabled=false;},1500);
+  }catch(e){
+    alert('Save failed: '+e.message);
+    btn.textContent='Save Measurements'; btn.disabled=false;
+  }
+}
+
+async function deleteMeasurement(id){
+  if(!confirm('Delete this entry?')) return;
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/body_measurements?id=eq.${id}`,{
+      method:'DELETE',
+      headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
+    });
+    if(!r.ok) throw new Error(await r.text());
+    MEASUREMENTS=MEASUREMENTS.filter(m=>m.id!==id);
+    renderMeasurements();
+  }catch(e){alert('Delete failed: '+e.message);}
+}
+
+function renderMeasurements(){
+  if(!document.getElementById('m-ratios')) return;
+  const latest = MEASUREMENTS.length ? MEASUREMENTS[MEASUREMENTS.length-1] : null;
+  const baseline = MEASUREMENTS.length ? MEASUREMENTS[0] : null;
+
+  // ── Key ratio cards ──────────────────────────────────────────
+  const ratioEl = document.getElementById('m-ratios');
+  if(latest){
+    const swRatio = latest.shoulders && latest.waist
+      ? (latest.shoulders/latest.waist).toFixed(2) : null;
+    const swTarget = MEAS_TARGETS.sw_ratio;
+    const swOk = swRatio && parseFloat(swRatio)>=swTarget.lo;
+
+    const cards = [
+      {label:'Weight', val:latest.weight?latest.weight+' lbs':'—',
+       target:'Target: 183–187 lbs',
+       delta: baseline&&latest.weight&&baseline.weight
+         ? ((latest.weight-baseline.weight)>0?'+':'')+((latest.weight-baseline.weight).toFixed(1))+' lbs from baseline'
+         : null,
+       good: latest.weight && latest.weight<=187},
+      {label:'Waist', val:latest.waist?latest.waist+' in':'—',
+       target:'Target: 33.5–35 in',
+       delta: baseline&&latest.waist&&baseline.waist
+         ? ((latest.waist-baseline.waist)>0?'+':'')+((latest.waist-baseline.waist).toFixed(2))+' in from baseline'
+         : null,
+       good: latest.waist && latest.waist<=35},
+      {label:'Shoulder / Waist Ratio', val:swRatio||'—',
+       target:'Target: 1.42–1.48',
+       delta: swRatio ? (parseFloat(swRatio)>=1.42?'✓ In target range':'Below target') : null,
+       good: swOk},
+      {label:'Chest', val:latest.chest?latest.chest+' in':'—',
+       target:'Target: 41–43 in (maintain)',
+       delta: baseline&&latest.chest&&baseline.chest
+         ? ((latest.chest-baseline.chest)>0?'+':'')+((latest.chest-baseline.chest).toFixed(2))+' in from baseline'
+         : null,
+       good: latest.chest && latest.chest>=41 && latest.chest<=43},
+      {label:'Hips', val:latest.hips?latest.hips+' in':'—',
+       target:'Target: 38–39.5 in',
+       delta: baseline&&latest.hips&&baseline.hips
+         ? ((latest.hips-baseline.hips)>0?'+':'')+((latest.hips-baseline.hips).toFixed(2))+' in from baseline'
+         : null,
+       good: latest.hips && latest.hips<=39.5},
+    ];
+
+    ratioEl.innerHTML = cards.map(c=>`
+      <div class="m-ratio-card">
+        <div class="m-ratio-label">${c.label}</div>
+        <div class="m-ratio-val" style="color:${c.good?'#9ae6b4':'#C5A028'}">${c.val}</div>
+        <div class="m-ratio-target">${c.target}</div>
+        ${c.delta?`<div class="m-ratio-delta" style="color:${c.good?'#9ae6b4':'rgba(255,255,255,0.4)'}">${c.delta}</div>`:''}
+      </div>`).join('');
+  } else {
+    ratioEl.innerHTML = '';
+  }
+
+  // ── Charts ───────────────────────────────────────────────────
+  const grid = document.getElementById('m-charts-grid');
+  Object.values(mCharts).forEach(c=>{try{c.destroy();}catch(e){}});
+
+  grid.innerHTML = M_CHARTS.map(ch=>`
+    <div class="m-chart-card">
+      <div class="m-chart-header">
+        <span class="m-chart-title">${ch.title}</span>
+        <span class="m-chart-target">${ch.targetLabel||''}</span>
+      </div>
+      <div class="bd-legend" style="padding:8px 14px">
+        ${ch.series.map(s=>`<div class="bd-leg-item"><div class="leg-solid" style="background:${s.color}"></div> ${s.label}</div>`).join('')}
+        ${ch.targetLo?`<div class="bd-leg-item"><div class="leg-dashed" style="border-color:#888;width:18px;height:0;border-top:2px dashed"></div> Target range</div>`:''}
+      </div>
+      <div class="m-chart-wrap"><canvas id="mc-${ch.id}"></canvas></div>
+    </div>`).join('');
+
+  const labels = MEASUREMENTS.map(m=>{
+    const d=new Date(m.date+'T12:00:00');
+    return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  });
+
+  M_CHARTS.forEach(ch=>{
+    const ctx = document.getElementById('mc-'+ch.id);
+    if(!ctx) return;
+
+    const datasets = ch.series.map(s=>({
+      label: s.label,
+      data: MEASUREMENTS.map(m=>m[s.key]??null),
+      borderColor: s.color,
+      backgroundColor:'transparent',
+      borderWidth:2,
+      pointRadius:4,
+      pointBackgroundColor:s.color,
+      tension:0,
+      spanGaps:false,
+    }));
+
+    // Target range band as two dashed lines
+    if(ch.targetLo){
+      const n = Math.max(labels.length, 1);
+      datasets.push({
+        label:`Target lo`,
+        data: Array(n).fill(ch.targetLo),
+        borderColor:'#888', backgroundColor:'transparent',
+        borderWidth:1, borderDash:[4,3], pointRadius:0, tension:0,
+      });
+      datasets.push({
+        label:`Target hi`,
+        data: Array(n).fill(ch.targetHi),
+        borderColor:'#888', backgroundColor:'transparent',
+        borderWidth:1, borderDash:[4,3], pointRadius:0, tension:0,
+      });
+    }
+
+    mCharts[ch.id] = new Chart(ctx,{
+      type:'line',
+      data:{ labels, datasets },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false},
+          tooltip:{callbacks:{label:(c)=>{
+            const v=c.raw; if(v===null) return null;
+            return `${c.dataset.label}: ${v} ${ch.unit}`;
+          }}}
+        },
+        scales:{
+          x:{ grid:{color:'rgba(0,0,0,0.04)'}, ticks:{color:'#888',font:{size:11},maxRotation:45} },
+          y:{ reverse: ch.lower||false, grid:{color:'rgba(0,0,0,0.04)'},
+              ticks:{color:'#888',font:{size:11}} }
+        }
+      }
+    });
+  });
+
+  // ── History table ────────────────────────────────────────────
+  const tbody = document.getElementById('m-tbody');
+  tbody.innerHTML='';
+  [...MEASUREMENTS].reverse().forEach(m=>{
+    const sw = m.shoulders&&m.waist ? (m.shoulders/m.waist).toFixed(2) : '—';
+    const tr = document.createElement('tr');
+    tr.innerHTML=`
+      <td>${m.date}</td>
+      <td>${m.weight??'—'}</td>
+      <td>${m.shoulders??'—'}</td>
+      <td>${m.chest??'—'}</td>
+      <td style="font-weight:bold;color:${m.waist&&m.waist<=35?'#1a7a4a':'#c0392b'}">${m.waist??'—'}</td>
+      <td>${m.hips??'—'}</td>
+      <td>${m.bicep_r_flex??'—'}</td>
+      <td>${m.thigh_r_flex??'—'}</td>
+      <td style="font-weight:bold">${sw}</td>
+      <td><button class="btn-del" onclick="deleteMeasurement(${m.id})">✕</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+async function initMeasurements(){
+  if(SUPABASE_URL==='YOUR_SUPABASE_URL'){
+    MEASUREMENTS=MEAS_SEED.map((r,i)=>({...r,id:i+1}));
+    return;
+  }
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/body_measurements?order=date.asc`,{
+      headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}
+    });
+    if(!r.ok) throw new Error(await r.text());
+    let rows=await r.json();
+    if(rows.length===0){
+      for(const row of MEAS_SEED){
+        const res=await fetch(`${SUPABASE_URL}/rest/v1/body_measurements`,{
+          method:'POST',
+          headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,
+            'Content-Type':'application/json',Prefer:'return=representation'},
+          body:JSON.stringify(row)
+        });
+        if(res.ok) rows.push(...await res.json());
+      }
+    }
+    MEASUREMENTS=rows;
+  }catch(e){
+    console.error(e);
+    MEASUREMENTS=MEAS_SEED.map((r,i)=>({...r,id:i+1}));
+  }
+}
+
+initMeasurements();
 </script>
 
 </body>
