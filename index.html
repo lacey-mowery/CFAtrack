@@ -1540,7 +1540,35 @@ function renderWeightCallout(){
   </div>
 
   <!-- Superscore summary -->
-  <div id="superscore-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px"></div>
+  <div id="superscore-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:14px"></div>
+
+  <!-- Color legend -->
+  <div style="background:#0d1b2e;border-radius:8px;padding:12px 18px;margin-bottom:20px;display:flex;flex-wrap:wrap;align-items:center;gap:20px">
+    <div style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;flex-shrink:0">Score color key:</div>
+    <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#9ae6b4">
+      <div style="width:12px;height:12px;border-radius:50%;background:#9ae6b4;flex-shrink:0"></div>
+      <span>At or above midpoint — closer to 75th percentile</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#C5A028">
+      <div style="width:12px;height:12px;border-radius:50%;background:#C5A028;flex-shrink:0"></div>
+      <span>Between 25th percentile and midpoint</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#fca5a5">
+      <div style="width:12px;height:12px;border-radius:50%;background:#fca5a5;flex-shrink:0"></div>
+      <span>Below 25th percentile</span>
+    </div>
+    <div style="width:100%;border-top:1px solid rgba(255,255,255,0.07);padding-top:10px;margin-top:2px">
+      <div style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">USNA percentile ranges (Class of 2029) — midpoint shown on each bar above</div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:rgba(255,255,255,0.45)">
+        <span>SAT Total: 1210–1430</span>
+        <span>SAT Math: 610–720</span>
+        <span>SAT Verbal: 600–710</span>
+        <span>ACT Composite: 25–31</span>
+        <span>ACT Math: 25–31</span>
+        <span>ACT English: 24–33</span>
+      </div>
+    </div>
+  </div>
 
   <!-- History table -->
   <div class="session-history">
@@ -1798,7 +1826,7 @@ let TEST_SCORES = [];
 
 // Seed with Aedan's known scores
 const SEED_SCORES = [
-  {date:'2025-03-01', type:'ACT', math:29, verbal:61, science:29, reading:33, notes:'ACT March 2025 — composite 30'},
+  {date:'2025-03-01', type:'ACT', math:29, verbal:28, science:29, reading:33, notes:'ACT March 2025 — composite 30'},
   {date:'2025-08-01', type:'SAT', math:630, verbal:670, science:null, reading:null, notes:'SAT August 2025 — 1300'},
   {date:'2025-12-01', type:'SAT', math:660, verbal:630, science:null, reading:null, notes:'SAT December 2025 — 1290'},
   {date:'2026-03-14', type:'SAT', math:640, verbal:650, science:null, reading:null, notes:'SAT March 2026 — 1290'},
@@ -1894,14 +1922,20 @@ function renderScores(){
   const pctBar = (v, lo, hi, lolbl, hilbl) => {
     if(v===null) return '';
     const mid = (lo+hi)/2;
+    const midLbl = Number.isInteger(mid) ? mid : mid.toFixed(1);
     const clr = v>=mid ? '#9ae6b4' : v>=lo ? '#C5A028' : '#fca5a5';
-    const pct = Math.min(100, Math.max(0, ((v-lo)/(hi-lo))*100));
+    const pct    = Math.min(100, Math.max(0, ((v-lo)/(hi-lo))*100));
+    const midPct = 50; // midpoint is always 50% of the bar
     return `<div style="margin-top:6px">
       <div style="display:flex;justify-content:space-between;font-size:9px;color:rgba(255,255,255,0.3);margin-bottom:2px">
-        <span>25th: ${lolbl}</span><span>75th: ${hilbl}</span>
+        <span>25th: ${lolbl}</span>
+        <span style="color:rgba(255,255,255,0.5);font-weight:bold">mid: ${midLbl}</span>
+        <span>75th: ${hilbl}</span>
       </div>
-      <div style="background:rgba(255,255,255,0.1);border-radius:3px;height:5px;position:relative">
-        <div style="width:${pct}%;height:5px;border-radius:3px;background:${clr};transition:width 0.4s"></div>
+      <div style="background:rgba(255,255,255,0.1);border-radius:3px;height:7px;position:relative">
+        <div style="width:${pct}%;height:7px;border-radius:3px;background:${clr};transition:width 0.4s"></div>
+        <!-- midpoint tick -->
+        <div style="position:absolute;left:50%;top:-1px;width:2px;height:9px;background:rgba(255,255,255,0.4);transform:translateX(-50%)"></div>
       </div>
       <div style="font-size:10px;color:${clr};margin-top:3px;font-weight:bold">${v>=mid?'Above midpoint — closer to 75th':'Below midpoint — closer to 25th'}</div>
     </div>`;
@@ -2396,3 +2430,4 @@ initMeasurements();
 
 </body>
 </html>
+
